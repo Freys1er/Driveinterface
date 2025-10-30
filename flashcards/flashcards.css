@@ -1,0 +1,79 @@
+/* START OF FILE flashcards.css */
+/* --- Flashcard Specific Styling --- */
+
+/* Base Styles to integrate with main app theme */
+#file-content-display { 
+    padding: 0 !important; 
+    display: flex;             
+    flex-direction: column;    
+    /* NEW: Use 100vh minus the fixed height of the top navigation bar/header */
+    height: 100vh;
+    /* This needs to be overridden to fix issues with a 20px padding from the parent */
+    margin: -20px;
+    width: calc(100% + 40px);
+}
+
+/* Base theme change for AMOLED Black */
+#file-content-display {
+    background-color: var(--background-color) !important; 
+    overflow-y: hidden !important; /* Prevents scrollbars in the main content area */
+}
+
+
+#file-content-display header { 
+    display: flex; 
+    justify-content: space-between;
+    align-items: center; 
+    padding: 10px; 
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0; 
+    /* NEW: Define a fixed height for calculation purposes */
+    height: 50px; 
+}
+/* ... Header Elements are fine ... */
+
+
+/* Screen Structure */
+.screen { 
+    display: none;
+    flex-direction: column;
+    flex-grow: 1;              /* Allows screen to take up remaining height */
+    /* NEW: Now use calc() based on viewport and fixed header height */
+    height: calc(100vh - 50px);
+}
+
+.screen.active {
+    display: flex;
+}
+
+/* Study View Main */
+#flashcard-study-screen main.study-main {
+    flex-grow: 1;              
+    /* NEW: Use Grid for Centering */
+    display: grid;
+    place-items: center; /* THIS IS THE FINAL VERTICAL & HORIZONTAL CENTER ALIGNMENT */
+    padding: 20px;
+    box-sizing: border-box;
+    /* Ensure it takes full height of its parent (.screen) */
+    height: 100%;
+}
+
+/* Flashcard Centering and Flip Animation */
+.flashcard-container {
+    /* REMOVED ALL PREVIOUS FLEXBOX CENTERING RULES */
+    perspective: 1000px;
+    position: relative;
+    /* NEW: Let the grid container center the card */
+    display: block; 
+}
+
+#flashcard {
+    width: 80vw;
+    height: 60vh;
+    max-width: 400px;
+    max-height: 500px; /* NEW: Added max height for larger screens */
+    position: relative;
+    transform-style: preserve-3d;
+    user-select: none;
+}
+/* ... rest of flashcards.css is fine ... */

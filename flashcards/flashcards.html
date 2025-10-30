@@ -1,0 +1,36 @@
+<!-- START OF FILE flashcards.html -->
+<div id="flashcard-template-content">
+    
+    <!-- Study screen (Initial Screen) -->
+    <div id="flashcard-study-screen" class="screen active">
+      <header>
+        <button id="study-back-btn" class="header-btn" title="Back to File List">Back</button>
+        <div id="card-counter"></div>
+        <button id="list-view-btn" class="header-btn" title="View/Edit Card List">List</button>
+        <button id="flashcard-create-deck-btn" class="header-btn info-btn" title="Deck Info"><span class="material-icons">info</span></button>
+      </header>
+      <main class="study-main">
+        <div class="flashcard-container">
+          <div id="smart-suggestion"></div>
+          <div id="flashcard">
+            <div class="card-face card-front">Tap/Swipe Left for Question</div>
+            <div class="card-face card-back"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Editor Screen -->
+    <div id="flashcard-editor-screen" class="screen">
+      <header>
+        <button id="editor-back-btn" class="header-btn">Back</button>
+        <h2 style="margin: 0;" id="editor-title"></h2>
+        <button id="edit-save-btn" class="header-btn">Edit</button>
+      </header>
+      <main class="editor-main">
+        <textarea id="editor" readonly></textarea>
+      </main>
+    </div>
+    
+</div>
+<!-- END OF FILE flashcards.html -->
