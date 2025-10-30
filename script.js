@@ -7,6 +7,13 @@ const CLIENT_ID = '490934668566-dpcfvk9p5kfpk44ko8v1gl3d5i9f83qr.apps.googleuser
  * CONFIGURATION & GLOBAL STATE
  * ====================================================================================
  */
+
+
+/*
+ * ====================================================================================
+ * CONFIGURATION & GLOBAL STATE
+ * ====================================================================================
+ */
 const SCOPES = 'https://www.googleapis.com/auth/drive';
 const TOKEN_STORAGE_KEY = 'drive-notes-app-token';
 
@@ -206,7 +213,14 @@ function handleFileTreeClick(e) {
     if (e.target.closest('.rename-button')) {
         e.stopPropagation();
         renameFile(file.id, file.name, listItem);
-    } else if (file.mimeType === 'application/vnd.google-apps.folder') {
+    }
+    // NEW: Handle Delete button click
+    else if (e.target.closest('.delete-button')) {
+        e.stopPropagation();
+        deleteFileOrFolder(file.id, file.name, listItem);
+    }
+    // END NEW
+    else if (file.mimeType === 'application/vnd.google-apps.folder') {
         toggleFolder(listItem, file);
     } else {
         openViewerModal(file);
@@ -279,8 +293,10 @@ async function renderFileTree(parentId, parentElement) {
                     <span class="icon file-icon material-icons">${getIconForFile(file)}</span>
                     <span class="file-name">${file.name}</span>
                 </div>
-                <button class="rename-button" title="Rename"><span class="material-icons">edit</span></button>`;
-            listItem.appendChild(fileRow);
+                <button class="rename-button" title="Rename"><span class="material-icons">edit</span></button>
+                <!-- NEW: Delete Button -->
+                <button class="delete-button" title="Delete"><span class="material-icons">delete</span></button>`;
+                listItem.appendChild(fileRow);
             if (isFolder) {
                 listItem.dataset.loaded = 'false';
                 const childrenList = document.createElement('ul');
@@ -379,6 +395,31 @@ async function renameFile(fileId, currentName, listItem) {
     }
 }
 
+// NEW: Delete Function
+async function deleteFileOrFolder(fileId, fileName, listItem) {
+    if (!confirm(`Are you sure you want to delete "${fileName}"? This action cannot be undone and moves the item to the Trash.`)) {
+        return;
+    }
+    try {
+        await gapi.client.drive.files.update({
+            fileId: fileId,
+            // Setting 'trashed' to true moves the file/folder to the trash, which is the standard "delete" action in Drive.
+            resource: { trashed: true }
+        });
+        listItem.remove();
+        // Clear content display if the deleted file was selected
+        if (selectedFile.id === fileId) {
+            document.getElementById('file-content-display').innerHTML = `<h1>File Deleted</h1><p>"${fileName}" was moved to trash.</p>`;
+            // Reset selection to prevent errors if further actions are attempted
+            selectedFile = { id: 'root', name: 'Root' };
+        }
+    } catch (err) {
+        alert("Could not delete file/folder. Check console for details.");
+        console.error("Delete error:", err);
+    }
+}
+// END NEW
+
 function getIconForFile(file) {
     if (file.mimeType === 'application/vnd.google-apps.folder') return 'folder';
     if (file.mimeType.startsWith('image/')) return 'image';
@@ -466,10 +507,10 @@ function viewAsImage(file) {
     if (!file.webContentLink) {
         return contentDisplay.innerHTML = `<h2>Preview not available</h2><p>This file does not have a direct image link.</p>`;
     }
-    
+
     const token = gapi.client.getToken()?.access_token;
     if (!token) return contentDisplay.innerHTML = `<h2>Error: Access token missing.</h2>`;
-    
+
     // Use the webContentLink and ensure the access_token is appended.
     // The link must ensure it's a download or media content.
     let url = file.webContentLink;
@@ -477,7 +518,7 @@ function viewAsImage(file) {
     if (!url.includes('export=download')) url += '&export=download';
     // 2. Append the authenticated token
     const authenticatedUrl = `${url}&access_token=${token}`;
-    
+
     contentDisplay.innerHTML = `<h2>${file.name}</h2><img src="${authenticatedUrl}" alt="${file.name}">`;
 }
 
@@ -485,17 +526,17 @@ function viewAsVideo(file) {
     if (!file.webContentLink) {
         return contentDisplay.innerHTML = `<h2>Preview not available</h2><p>This file does not have a direct video link.</p>`;
     }
-    
+
     const token = gapi.client.getToken()?.access_token;
     if (!token) return contentDisplay.innerHTML = `<h2>Error: Access token missing.</h2>`;
-    
+
     // Use the webContentLink for video streaming
     let url = file.webContentLink;
     // 1. Ensure it's NOT a download link for streaming (often better without the export=download)
-    url = url.replace('&export=download', ''); 
+    url = url.replace('&export=download', '');
     // 2. Append the authenticated token
     const authenticatedUrl = `${url}&access_token=${token}`;
-    
+
     contentDisplay.innerHTML = `<h2>${file.name}</h2><video controls width="100%"><source src="${authenticatedUrl}" type="${file.mimeType}"></video>`;
 }
 
@@ -522,7 +563,26 @@ async function viewAsPlainText(file) {
         contentDisplay.appendChild(pre);
     } catch (err) { contentDisplay.innerHTML = `<h1>Error: Could not load text content.</h1>`; }
 }
-
+async function deleteFileOrFolder(fileId, fileName, listItem) {
+    if (!confirm(`Are you sure you want to delete "${fileName}"? This action cannot be undone and moves the item to the Trash.`)) {
+        return;
+    }
+    try {
+        await gapi.client.drive.files.update({
+            fileId: fileId,
+            resource: { trashed: true }
+        });
+        listItem.remove();
+        // Clear content display if the deleted file was selected
+        if (selectedFile.id === fileId) {
+            document.getElementById('file-content-display').innerHTML = `<h1>File Deleted</h1><p>"${fileName}" was moved to trash.</p>`;
+            selectedFile = { id: 'root', name: 'Root' };
+        }
+    } catch (err) {
+        alert("Could not delete file/folder. Check console for details.");
+        console.error("Delete error:", err);
+    }
+}
 /*
  * ====================================================================================
  * START THE APPLICATION

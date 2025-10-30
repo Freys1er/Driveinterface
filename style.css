@@ -259,6 +259,11 @@ body {
     display: none;
 }
 
+/* ==========================================================================
+   File Tree
+   ========================================================================== */
+/* ... existing styles ... */
+
 .file-row {
     display: flex;
     align-items: center;
@@ -266,11 +271,7 @@ body {
     cursor: pointer;
     border-radius: 4px;
 }
-
-.file-row:hover,
-.file-row.selected {
-    background-color: var(--surface-color);
-}
+/* ... existing styles ... */
 
 .file-label {
     display: flex;
@@ -299,17 +300,47 @@ body {
     cursor: pointer;
     padding: 0 8px;
     visibility: hidden;
-    margin-left: auto;
+    /* CHANGE: Removed margin-left: auto; to allow delete button next to it */
+    margin-left: 0; 
     color: var(--text-color-muted);
 }
+/* NEW: Delete Button Styling - follows rename button style */
+.delete-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0 8px;
+    visibility: hidden;
+    margin-left: 0; 
+    color: var(--text-color-muted);
+}
+/* END NEW */
 
-.file-row:hover .rename-button {
+/* CHANGE: Add margin-left: auto to the first action button to push them to the right */
+.file-row .rename-button {
+    margin-left: auto; 
+}
+
+
+.file-row:hover .rename-button,
+/* NEW: Show delete button on hover */
+.file-row:hover .delete-button {
     visibility: visible;
 }
 
 .rename-button:hover {
     color: var(--text-color);
 }
+/* NEW: Hover for delete button */
+.delete-button:hover {
+    color: #ff4d4d; /* Red color for delete action */
+}
+
+.file-row:hover,
+.file-row.selected {
+    background-color: var(--surface-color);
+}
+
 
 /* ==========================================================================
    Content Area & Viewers & Modal (Updated)
@@ -320,7 +351,6 @@ body {
     padding: 20px; 
     overflow-y: auto;
     box-sizing: border-box;
-    /* REMOVED: display: flex; flex-direction: column; height: 100%; */
 }
 
 /* Ensure no specific styles for #file-content-display in main style.css */
