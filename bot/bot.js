@@ -1,14 +1,3 @@
-// NOTE: This is a simplified client-side implementation.
-// For a production app, you should make API calls to your own secure backend server
-// which then calls the Gemini API, to protect your API key.
-
-// --- CONFIGURATION ---
-// IMPORTANT: Replace with your actual Google AI Gemini API key
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
-const GEMINI_VISION_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=${GEMINI_API_KEY}`;
-
-
 // --- DOM ELEMENTS ---
 const botContainer = document.getElementById('bot-container');
 const messagesContainer = document.getElementById('bot-messages');
@@ -40,14 +29,11 @@ async function handleSendMessage() {
     const userMessage = input.value.trim();
     if (!userMessage && !attachedFile) return;
 
-    // Add user message to UI
     addMessage('user', userMessage, attachedFile ? attachedFile.name : null);
     input.value = '';
 
-    // Show typing indicator
     showTypingIndicator(true);
 
-    // Check for "create file" command
     const createFileRegex = /create file(?: at)? (.*?\.md) with content:/is;
     const match = userMessage.match(createFileRegex);
 
@@ -56,7 +42,6 @@ async function handleSendMessage() {
         const content = userMessage.substring(match[0].length).trim();
         await handleCreateFileCommand(filePath, content);
     } else {
-        // Send to Gemini API
         await sendMessageToGemini(userMessage);
     }
 
@@ -90,7 +75,19 @@ async function handleCreateFileCommand(fileName, content) {
  * @param {string} text The user's text message.
  */
 async function sendMessageToGemini(text) {
-    const apiUrl = attachedFile ? GEMINI_VISION_API_URL : GEMINI_API_URL;
+    // Get the API key securely from the main script
+    const apiKey = window.driveApi ? window.driveApi.getGeminiApiKey() : null;
+
+    if (!apiKey) {
+        addMessage('bot', "Gemini API Key is not configured. Please refresh the page and provide your key when prompted. The key is stored securely in a `settings.json` file in your Google Drive root folder.");
+        showTypingIndicator(false);
+        return;
+    }
+
+    const visionModel = 'gemini-flash-latest';
+    const textModel = 'gemini-flash-latest';
+    const model = attachedFile ? visionModel : textModel;
+    const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     
     const contents = [{
         parts: [{ text: text }]
@@ -106,7 +103,7 @@ async function sendMessageToGemini(text) {
     }
 
     try {
-        const response = await fetch(apiUrl, {
+        const response = await fetch(GEMINI_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents })
@@ -136,7 +133,7 @@ async function handleFileUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
 
-    if (file.size > 4 * 1024 * 1024) { // 4MB limit for Gemini API
+    if (file.size > 4 * 1024 * 1024) {
         addMessage('bot', "File is too large. Please select a file smaller than 4MB.");
         return;
     }
@@ -153,7 +150,7 @@ async function handleFileUpload(e) {
         console.error("File processing error:", error);
         addMessage('system', "Could not process the attached file.");
     } finally {
-        fileUploadInput.value = ''; // Reset input
+        fileUploadInput.value = '';
     }
 }
 
@@ -168,11 +165,9 @@ function addMessage(role, text, attachmentName = null) {
     messageEl.className = `bot-message ${role}`;
     
     let content = text;
-    // For bot responses, convert Markdown to HTML
     if (role === 'bot' && window.marked) {
         content = marked.parse(text);
     } else {
-        // Basic escaping for other roles to prevent HTML injection
         const tempDiv = document.createElement('div');
         tempDiv.textContent = text;
         content = tempDiv.innerHTML.replace(/\n/g, '<br>');
@@ -218,7 +213,7 @@ function resetAttachedFile() {
 /**
  * Converts a File object to a Base64 string.
  * @param {File} file The file to convert.
- * @returns {Promise<string>} A promise that resolves with the Base64 string (without the data URL prefix).
+ * @returns {Promise<string>} A promise that resolves with the Base64 string.
  */
 function toBase64(file) {
     return new Promise((resolve, reject) => {

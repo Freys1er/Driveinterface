@@ -16,10 +16,11 @@ let gapiInited = false, gisInited = false;
 let currentPath = [];
 let selectedFile = { id: 'root', name: 'Root' };
 let isFocusMode = false;
-let currentMarkdownFile = null;
-let currentRawMarkdown = '';
-let isMarkdownEditMode = false;
-
+let geminiApiKey = null;
+// NEW: Unified state for the text editor
+let currentTextFile = null;
+let currentRawText = '';
+let isEditMode = false;
 
 /*
  * ====================================================================================
@@ -40,12 +41,12 @@ const searchInput = document.getElementById('search-input');
 const pathBar = document.getElementById('path-bar');
 const unfocusButton = document.getElementById('unfocus-button');
 const contentArea = document.getElementById('content-area');
-// New buttons
 const fullscreenButton = document.getElementById('fullscreen-button');
 const toggleBotButton = document.getElementById('toggle-bot-button');
-const mdToggleButton = document.getElementById('md-toggle-button');
-const mdSaveButton = document.getElementById('md-save-button');
-
+const botCloseButton = document.getElementById('bot-close-button');
+// RENAMED: Editor buttons are now generic
+const editorToggleButton = document.getElementById('editor-toggle-button');
+const editorSaveButton = document.getElementById('editor-save-button');
 const fileNavigator = document.getElementById('file-navigator');
 const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
 const navCloseButton = document.getElementById('nav-close-button');
@@ -67,12 +68,11 @@ searchInput.oninput = () => filterFileTree(searchInput.value);
 unfocusButton.onclick = exitFocusMode;
 mobileMenuToggle.onclick = toggleFileNavigator;
 navCloseButton.onclick = toggleFileNavigator;
-// New listeners
 fullscreenButton.onclick = toggleFullScreen;
 toggleBotButton.onclick = toggleBot;
-mdToggleButton.onclick = toggleMarkdownMode;
-mdSaveButton.onclick = saveMarkdownFile;
-
+botCloseButton.onclick = toggleBot;
+editorToggleButton.onclick = toggleEditorMode;
+editorSaveButton.onclick = saveTextFile;
 
 /*
  * ====================================================================================
@@ -104,9 +104,7 @@ function gisLoaded() {
 }
 
 async function initializeGapiClient() {
-    await gapi.client.init({
-        discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-    });
+    await gapi.client.init({ discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'] });
     gapiInited = true; validateToken();
 }
 
@@ -117,6 +115,7 @@ async function validateToken() {
         gapi.client.setToken(storedToken);
         try {
             await gapi.client.drive.about.get({ fields: 'user' });
+            await handleApiKeys();
             navigateTo('root', 'Root');
         } catch (err) { signOut(); }
     }
@@ -124,10 +123,11 @@ async function validateToken() {
 
 function handleAuthClick() { if (gisInited) tokenClient.requestAccessToken({ prompt: 'consent' }); }
 
-function handleTokenResponse(tokenResponse) {
+async function handleTokenResponse(tokenResponse) {
     if (tokenResponse.error) return console.error("Auth error:", tokenResponse.error);
     saveToken(gapi.client.getToken());
     showAppUI();
+    await handleApiKeys();
     navigateTo('root', 'Root');
 }
 
@@ -139,6 +139,7 @@ function handleSignoutClick() {
 function signOut() {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     gapi.client.setToken('');
+    geminiApiKey = null;
     showLoginUI();
     fileList.innerHTML = '';
 }
@@ -149,8 +150,21 @@ function getStoredToken() {
     if (!tokenString) return null;
     try { return JSON.parse(tokenString); } catch (e) { return null; }
 }
-function showAppUI() { loginScreen.classList.add('hidden'); appContainer.classList.remove('hidden'); }
-function showLoginUI() { loginScreen.classList.remove('hidden'); appContainer.classList.add('hidden'); }
+
+function showAppUI() {
+    loginScreen.classList.add('hidden');
+    appContainer.classList.remove('hidden');
+    appContainer.classList.add('bot-collapsed');
+}
+
+function showLoginUI() {
+    loginScreen.classList.remove('hidden');
+    appContainer.classList.add('hidden');
+}
+
+// ... (API Key Handling Protocol remains the same) ...
+async function handleApiKeys() { try { let e = await searchForSettingsFile(); if (e) { const t = await fetchFileContent({ id: e }); if (t) { try { const n = JSON.parse(t); if (n.geminiApiKey) { geminiApiKey = n.geminiApiKey; return console.log("Gemini API Key loaded from settings.json."), void 0 } } catch (o) { console.warn("settings.json is malformed. Will ask for key.") } } await getAndSaveApiKey(e) } else { const t = await createSettingsFile(); await getAndSaveApiKey(t) } } catch (s) { console.error("Error during API key handling:", s), alert("Could not set up API key. The bot may not function correctly.") } } async function searchForSettingsFile() { const e = await gapi.client.drive.files.list({ q: "name='settings.json' and 'root' in parents and trashed = false", fields: "files(id)", spaces: "drive" }); return e.result.files.length > 0 ? e.result.files[0].id : null } async function createSettingsFile() { const e = await gapi.client.drive.files.create({ resource: { name: "settings.json", mimeType: "application/json", parents: ["root"] }, fields: "id" }); return e.result.id } async function getAndSaveApiKey(e) { const t = prompt("Please enter your Google AI Gemini API Key.\n\nThis will be saved to a 'settings.json' file in your Google Drive root folder so you won't be asked again."); t && t.trim() ? (geminiApiKey = t.trim(), await updateFileContent(e, JSON.stringify({ geminiApiKey: geminiApiKey }, null, 2), "application/json"), alert("API Key saved successfully to settings.json.")) : (alert("No API Key provided. The AI Bot will not function."), geminiApiKey = null) }
+
 
 /*
  * ====================================================================================
@@ -158,9 +172,7 @@ function showLoginUI() { loginScreen.classList.remove('hidden'); appContainer.cl
  * ====================================================================================
  */
 function navigateTo(folderId, folderName) {
-    if (folderId === 'root' && currentPath.length === 0) {
-        currentPath = [{ id: 'root', name: 'Root' }];
-    }
+    if (folderId === 'root' && currentPath.length === 0) { currentPath = [{ id: 'root', name: 'Root' }]; }
     renderFileTree(folderId, fileList);
     renderPathBar();
 }
@@ -196,86 +208,47 @@ function updateSelection(fileRow, file) {
     selectedFile = file;
 }
 
-
-/*
- * ====================================================================================
- * CORE FILE TREE & INTERACTIONS
- * ====================================================================================
- */
-function handleFileTreeClick(e) {
-    const fileRow = e.target.closest('.file-row');
-    if (!fileRow) return;
-
-    const listItem = fileRow.parentElement;
-    const file = { ...listItem.dataset };
-    updateSelection(fileRow, file);
-
-    const target = e.target.closest('button');
-    if (target) {
-        e.stopPropagation();
-        if (target.classList.contains('rename-button')) {
-            renameFile(file.id, file.name, listItem);
-        } else if (target.classList.contains('delete-button')) {
-            deleteFileOrFolder(file.id, file.name, listItem);
-        } else if (target.classList.contains('download-button')) {
-            downloadFile(file);
-        }
-    } else if (file.mimeType === 'application/vnd.google-apps.folder') {
-        toggleFolder(listItem, file);
-    } else {
-        openFile(file);
-        if (window.innerWidth <= 768) {
-            fileNavigator.classList.remove('visible');
-            mobileMenuToggle.querySelector('.material-icons').textContent = 'menu';
-        }
-    }
-}
-
-async function toggleFolder(listItem, folder) {
-    const isLoaded = listItem.dataset.loaded === 'true';
-    const isCollapsed = listItem.classList.contains('collapsed');
-    const childrenList = listItem.querySelector('ul');
-    if (!childrenList) return;
-
-    if (!isLoaded) {
-        listItem.dataset.loaded = 'true';
-        listItem.classList.remove('collapsed');
-        await renderFileTree(folder.id, childrenList);
-        updateFolderIcon(listItem, false);
-    } else if (isCollapsed) {
-        listItem.classList.remove('collapsed');
-        updateFolderIcon(listItem, false);
-    } else {
-        listItem.classList.add('collapsed');
-        updateFolderIcon(listItem, true);
-    }
-}
-
-async function renderFileTree(parentId, parentElement) {
+// ... (handleFileTreeClick, toggleFolder, renderFileTree remain the same) ...
+function handleFileTreeClick(e) { const t = e.target.closest(".file-row"); if (t) { const n = t.parentElement, o = { ...n.dataset }; updateSelection(t, o); const s = e.target.closest("button"); s ? (e.stopPropagation(), s.classList.contains("rename-button") ? renameFile(o.id, o.name, n) : s.classList.contains("delete-button") ? deleteFileOrFolder(o.id, o.name, n) : s.classList.contains("download-button") && downloadFile(o)) : "application/vnd.google-apps.folder" === o.mimeType ? toggleFolder(n, o) : (openFile(o), window.innerWidth <= 768 && (fileNavigator.classList.remove("visible"), mobileMenuToggle.querySelector(".material-icons").textContent = "menu")) } } async function toggleFolder(e, t) { const n = e.dataset.loaded === "true", o = e.classList.contains("collapsed"), s = e.querySelector("ul"); s && (!n ? (e.dataset.loaded = "true", e.classList.remove("collapsed"), await renderFileTree(t.id, s), updateFolderIcon(e, !1)) : o ? (e.classList.remove("collapsed"), updateFolderIcon(e, !1)) : (e.classList.add("collapsed"), updateFolderIcon(e, !0))) } async function renderFileTree(parentId, parentElement) {
+    // Start by clearing the target element and showing a loading state
     parentElement.innerHTML = `<li>Loading...</li>`;
     try {
+        // Fetch the list of files and folders from the Google Drive API
         const response = await gapi.client.drive.files.list({
             q: `'${parentId}' in parents and trashed = false`,
             fields: 'files(id, name, mimeType, webContentLink, webViewLink)',
             orderBy: 'folder desc, name'
         });
         const files = response.result.files;
+
+        // Clear the loading message
         parentElement.innerHTML = '';
+
+        // Handle the case where a folder is empty
         if (!files || files.length === 0) {
             if (parentId !== 'root' && parentId !== selectedFile.id) {
-                const emptyItem = document.createElement('li');
-                emptyItem.textContent = '(Empty)';
-                emptyItem.style.cssText = 'color: #888; font-style: italic; padding: 6px 24px;';
-                parentElement.appendChild(emptyItem);
+                parentElement.innerHTML = '<li class="empty-folder">(Empty)</li>';
             }
-            return;
+            return; // Stop the function here if there are no files
         }
+
+        // Loop through each file/folder returned by the API
         files.forEach(file => {
             const listItem = document.createElement('li');
-            Object.keys(file).forEach(key => { if (file[key]) listItem.dataset[key] = String(file[key]) });
-            const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
-            if (isFolder) listItem.classList.add('collapsed');
 
+            // Store all file metadata in the element's dataset for later use
+            Object.keys(file).forEach(key => {
+                if (file[key]) {
+                    listItem.dataset[key] = String(file[key]);
+                }
+            });
+
+            const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
+            if (isFolder) {
+                listItem.classList.add('collapsed');
+            }
+
+            // Create the visible row for the file
             const fileRow = document.createElement('div');
             fileRow.className = 'file-row';
             fileRow.innerHTML = `
@@ -288,257 +261,130 @@ async function renderFileTree(parentId, parentElement) {
                     <button class="download-button" title="Download"><span class="material-icons">download</span></button>
                     <button class="rename-button" title="Rename"><span class="material-icons">edit</span></button>
                     <button class="delete-button" title="Delete"><span class="material-icons">delete</span></button>
-                </div>`;
+                </div>
+            `;
+
             listItem.appendChild(fileRow);
+
+            // If the item is a folder, add an empty <ul> to hold its children later
             if (isFolder) {
                 listItem.dataset.loaded = 'false';
-                const childrenList = document.createElement('ul');
-                listItem.appendChild(childrenList);
+                listItem.appendChild(document.createElement('ul'));
             }
+
+            // *** THIS IS THE CRITICAL LINE ***
+            // Append the newly created listItem to the correct parent element from the function parameter
             parentElement.appendChild(listItem);
         });
     } catch (err) {
         console.error("Error rendering file tree:", err);
-        parentElement.innerHTML = `<li>Error loading.</li>`;
-    }
-}
-
-/*
- * ====================================================================================
- * UI TOGGLES & MODES
- * ====================================================================================
- */
-function handleFocusClick() {
-    if (selectedFile && selectedFile.mimeType === 'application/vnd.google-apps.folder') {
-        enterFocusMode(selectedFile.id, selectedFile.name);
-    }
-}
-
-function enterFocusMode(folderId, folderName) {
-    isFocusMode = true;
-    unfocusButton.classList.remove('hidden');
-    focusButton.classList.remove('active');
-    focusButton.title = "Focus on Selected Folder";
-    currentPath = [{ id: folderId, name: folderName }];
-    renderFileTree(folderId, fileList);
-    renderPathBar();
-}
-
-function exitFocusMode() {
-    isFocusMode = false;
-    unfocusButton.classList.add('hidden');
-    focusButton.classList.remove('active');
-    focusButton.title = "Focus on Selected Folder";
-    currentPath = [{ id: 'root', name: 'Root' }];
-    renderFileTree('root', fileList);
-    renderPathBar();
-}
-
-function toggleFileNavigator() {
-    fileNavigator.classList.toggle('visible');
-    const isVisible = fileNavigator.classList.contains('visible');
-    mobileMenuToggle.querySelector('.material-icons').textContent = isVisible ? 'close' : 'menu';
-}
-
-function toggleFullScreen() {
-    contentArea.classList.toggle('fullscreen');
-    const isFullscreen = contentArea.classList.contains('fullscreen');
-    fullscreenButton.querySelector('.material-icons').textContent = isFullscreen ? 'fullscreen_exit' : 'fullscreen';
-}
-
-function toggleBot() {
-    appContainer.classList.toggle('bot-collapsed');
-    const isCollapsed = appContainer.classList.contains('bot-collapsed');
-    toggleBotButton.querySelector('.material-icons').textContent = isCollapsed ? 'chat_bubble_outline' : 'chat';
-}
-
-
-function filterFileTree(searchText) {
-    const lowerCaseText = searchText.toLowerCase();
-    const allItems = fileList.querySelectorAll('li');
-    allItems.forEach(item => {
-        const fileName = (item.dataset.name || '').toLowerCase();
-        const isMatch = fileName.includes(lowerCaseText);
-        if (isMatch) {
-            item.classList.remove('hidden-by-search');
-            let parent = item.parentElement.closest('li');
-            while (parent) {
-                parent.classList.remove('hidden-by-search');
-                parent.classList.remove('collapsed');
-                updateFolderIcon(parent, false);
-                parent = parent.parentElement.closest('li');
-            }
-        } else {
-            item.classList.add('hidden-by-search');
+        // Ensure parentElement is valid before trying to update it in case of an error
+        if (parentElement) {
+            parentElement.innerHTML = `<li>Error loading files.</li>`;
         }
-    });
-}
-
-async function renameFile(fileId, currentName, listItem) {
-    const newName = prompt("Enter new name:", currentName);
-    if (newName && newName !== currentName) {
-        try {
-            await gapi.client.drive.files.update({ fileId: fileId, resource: { name: newName } });
-            listItem.querySelector('.file-name').textContent = newName;
-            listItem.dataset.name = newName;
-        } catch (err) { alert("Could not rename file."); }
     }
 }
 
-async function deleteFileOrFolder(fileId, fileName, listItem) {
-    if (!confirm(`Are you sure you want to delete "${fileName}"? This moves the item to Trash.`)) return;
-    try {
-        await gapi.client.drive.files.update({ fileId: fileId, resource: { trashed: true } });
-        listItem.remove();
-        if (selectedFile.id === fileId) {
-            contentDisplay.innerHTML = `<h1>File Deleted</h1><p>"${fileName}" was moved to trash.</p>`;
-            selectedFile = { id: 'root', name: 'Root' };
-        }
-    } catch (err) {
-        alert("Could not delete file/folder.");
-        console.error("Delete error:", err);
-    }
-}
+// ... (UI Toggles & Modes remain the same) ...
+function handleFocusClick() { selectedFile && "application/vnd.google-apps.folder" === selectedFile.mimeType && enterFocusMode(selectedFile.id, selectedFile.name) } function enterFocusMode(e, t) { isFocusMode = !0, unfocusButton.classList.remove("hidden"), focusButton.classList.remove("active"), focusButton.title = "Focus on Selected Folder", currentPath = [{ id: e, name: t }], renderFileTree(e, fileList), renderPathBar() } function exitFocusMode() { isFocusMode = !1, unfocusButton.classList.add("hidden"), focusButton.classList.remove("active"), focusButton.title = "Focus on Selected Folder", currentPath = [{ id: "root", name: "Root" }], renderFileTree("root", fileList), renderPathBar() } function toggleFileNavigator() { fileNavigator.classList.toggle("visible"); const e = fileNavigator.classList.contains("visible"); mobileMenuToggle.querySelector(".material-icons").textContent = e ? "close" : "menu" } function toggleFullScreen() { contentArea.classList.toggle("fullscreen"); const e = contentArea.classList.contains("fullscreen"); fullscreenButton.querySelector(".material-icons").textContent = e ? "fullscreen_exit" : "fullscreen" } function toggleBot() { appContainer.classList.toggle("bot-collapsed"); const e = appContainer.classList.contains("bot-collapsed"); toggleBotButton.querySelector(".material-icons").textContent = e ? "chat_bubble_outline" : "chat" }
 
-function getIconForFile(file) {
-    if (file.mimeType === 'application/vnd.google-apps.folder') return 'folder';
-    if (file.mimeType.startsWith('image/')) return 'image';
-    if (file.mimeType.startsWith('video/')) return 'movie';
-    if (file.mimeType.startsWith('audio/')) return 'audio_file';
-    if (file.mimeType === 'application/pdf') return 'picture_as_pdf';
-    if (file.name && file.name.toLowerCase().endsWith('.md')) return 'article';
-    if (file.mimeType.includes('google-apps.document')) return 'description';
-    if (file.mimeType.includes('google-apps.spreadsheet')) return 'analytics';
-    if (file.mimeType.includes('google-apps.presentation')) return 'slideshow';
-    return 'insert_drive_file';
-}
 
-function updateFolderIcon(listItem, isCollapsed) {
-    const iconElement = listItem.querySelector('.toggle-arrow');
-    if (iconElement) iconElement.textContent = isCollapsed ? 'chevron_right' : 'expand_more';
-}
+// ... (filterFileTree, renameFile, deleteFileOrFolder, getIconForFile, updateFolderIcon remain the same) ...
+function filterFileTree(e) { const t = e.toLowerCase(); fileList.querySelectorAll("li").forEach(e => { const n = (e.dataset.name || "").toLowerCase().includes(t); e.classList.toggle("hidden-by-search", !n), n && function (e) { for (let t = e.parentElement.closest("li"); t;)t.classList.remove("hidden-by-search"), t.classList.remove("collapsed"), updateFolderIcon(t, !1), t = t.parentElement.closest("li") }(e) }) } async function renameFile(e, t, n) { const o = prompt("Enter new name:", t); o && o !== t && gapi.client.drive.files.update({ fileId: e, resource: { name: o } }).then(() => { n.querySelector(".file-name").textContent = o, n.dataset.name = o }).catch(() => alert("Could not rename file.")) } async function deleteFileOrFolder(e, t, n) { confirm(`Are you sure you want to delete "${t}"? This moves the item to Trash.`) && gapi.client.drive.files.update({ fileId: e, resource: { trashed: !0 } }).then(() => { n.remove(), selectedFile.id === e && (contentDisplay.innerHTML = `<h1>File Deleted</h1><p>"${t}" was moved to trash.</p>`, selectedFile = { id: "root", name: "Root" }) }).catch(e => { alert("Could not delete file/folder."), console.error("Delete error:", e) }) } function getIconForFile(e) { const t = e.name || ""; return "application/vnd.google-apps.folder" === e.mimeType ? "folder" : e.mimeType.startsWith("image/") ? "image" : e.mimeType.startsWith("video/") ? "movie" : e.mimeType.startsWith("audio/") ? "audio_file" : "application/pdf" === e.mimeType ? "picture_as_pdf" : t.toLowerCase().endsWith(".md") ? "article" : e.mimeType.includes("google-apps.document") ? "description" : e.mimeType.includes("google-apps.spreadsheet") ? "analytics" : e.mimeType.includes("google-apps.presentation") ? "slideshow" : "insert_drive_file" } function updateFolderIcon(e, t) { const n = e.querySelector(".toggle-arrow"); n && (n.textContent = t ? "chevron_right" : "expand_more") }
+
+
+// ... (File Actions: create, upload, download, refresh remain the same) ...
+async function createNewFile(e, t = "", n = selectedFile.id || "root") { "string" != typeof e && (e = prompt("Enter filename (e.g., 'My Note.md'):", "Untitled.md")), e && gapi.client.getToken() && fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", { method: "POST", headers: new Headers({ Authorization: `Bearer ${gapi.client.getToken().access_token}` }), body: function (e, t, n) { const o = { name: e, parents: [n] }; e.toLowerCase().endsWith(".md") ? o.mimeType = "text/markdown" : o.mimeType = "text/plain"; const s = new FormData; return s.append("metadata", new Blob([JSON.stringify(o)], { type: "application/json" })), s.append("file", new Blob([t], { type: o.mimeType })), s }(e, t, n) }).then(e => { e.ok ? refreshFileTree() : alert("Could not create file.") }).catch(e => { alert("Could not create file."), console.error("Create file error:", e) }) } async function createNewFolder() { const e = prompt("Enter folder name:", "New Folder"); e && gapi.client.drive.files.create({ resource: { name: e, mimeType: "application/vnd.google-apps.folder", parents: [selectedFile.id || "root"] }, fields: "id" }).then(refreshFileTree).catch(() => alert("Could not create folder.")) } async function uploadFile(e) { const t = e.target.files[0]; if (t) { contentDisplay.innerHTML = `<h1>Uploading ${t.name}...</h1>`; const n = { name: t.name, parents: [selectedFile.id || "root"] }, o = new FormData; o.append("metadata", new Blob([JSON.stringify(n)], { type: "application/json" })), o.append("file", t), fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", { method: "POST", headers: new Headers({ Authorization: `Bearer ${gapi.client.getToken().access_token}` }), body: o }).then(e => { e.ok ? (contentDisplay.innerHTML = "<h1>Upload complete!</h1>", refreshFileTree()) : alert("Could not upload file.") }).catch(() => alert("Could not upload file.")).finally(() => { e.target.value = "" }) } } function downloadFile(e) { const t = gapi.client.getToken()?.access_token; t ? e.webContentLink ? window.open(`${e.webContentLink}&access_token=${t}`, "_blank") : alert("This file is not directly downloadable (e.g., Google Docs).") : alert("Authentication token not found. Please sign in again.") } function refreshFileTree() { const e = isFocusMode ? selectedFile.id : "root"; renderFileTree(e, fileList) }
 
 /*
  * ====================================================================================
- * FILE ACTIONS (CREATE, UPLOAD, DOWNLOAD)
+ * UNIVERSAL TEXT EDITOR & VIEWERS (REFACTORED)
  * ====================================================================================
  */
-async function createNewFile(fileName, content = '', parentId = selectedFile.id || 'root') {
-    const finalFileName = typeof fileName === 'string' ? fileName : prompt("Enter filename (e.g., 'My Note.md'):", "Untitled.md");
-    if (!finalFileName) return;
-    try {
-        const fileMetadata = { name: finalFileName, parents: [parentId] };
-        const mimeType = finalFileName.toLowerCase().endsWith('.md') ? 'text/markdown' : 'text/plain';
-        fileMetadata.mimeType = mimeType;
 
-        const file = new Blob([content], { type: mimeType });
-
-        const form = new FormData();
-        form.append('metadata', new Blob([JSON.stringify(fileMetadata)], { type: 'application/json' }));
-        form.append('file', file);
-
-        await fetch(`https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`, {
-            method: 'POST',
-            headers: new Headers({ 'Authorization': `Bearer ${gapi.client.getToken().access_token}` }),
-            body: form,
-        });
-
-        refreshFileTree();
-    } catch (err) {
-        alert("Could not create file.");
-        console.error("Create file error:", err);
-    }
-}
-
-
-async function createNewFolder() {
-    const folderName = prompt("Enter folder name:", "New Folder");
-    if (!folderName) return;
-    try {
-        await gapi.client.drive.files.create({
-            resource: {
-                name: folderName,
-                mimeType: 'application/vnd.google-apps.folder',
-                parents: [selectedFile.id || 'root']
-            },
-            fields: 'id'
-        });
-        refreshFileTree();
-    } catch (err) { alert("Could not create folder."); }
-}
-
-async function uploadFile(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    contentDisplay.innerHTML = `<h1>Uploading ${file.name}...</h1>`;
-    const metadata = { name: file.name, parents: [selectedFile.id || 'root'] };
-    const form = new FormData();
-    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-    form.append('file', file);
-    try {
-        await fetch(`https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`, {
-            method: 'POST',
-            headers: new Headers({ 'Authorization': `Bearer ${gapi.client.getToken().access_token}` }),
-            body: form,
-        });
-        contentDisplay.innerHTML = `<h1>Upload complete!</h1>`;
-        refreshFileTree();
-    } catch (err) { alert("Could not upload file."); } finally { fileUploadInput.value = ''; }
-}
-
-function downloadFile(file) {
-    const token = gapi.client.getToken()?.access_token;
-    if (!token) {
-        alert("Authentication token not found. Please sign in again.");
-        return;
-    }
-    if (!file.webContentLink) {
-        alert("This file is not directly downloadable (e.g., Google Docs).");
-        return;
-    }
-    const downloadUrl = `${file.webContentLink}&access_token=${token}`;
-    window.open(downloadUrl, '_blank');
-}
-
-function refreshFileTree() {
-    const parentToRefresh = isFocusMode ? selectedFile.id : 'root';
-    renderFileTree(parentToRefresh, fileList);
-}
-
-
-/*
- * ====================================================================================
- * VIEWERS & MARKDOWN EDITOR
- * ====================================================================================
+/**
+ * NEW: Determines if a file is a text-based format that can be edited.
+ * @param {object} file - The file object from the Drive API.
+ * @returns {boolean}
  */
+function isEditableTextFile(file) {
+    const editableMimeTypes = ['text/plain', 'text/markdown', 'text/html', 'text/css', 'text/javascript', 'application/json'];
+    const editableExtensions = ['.md', '.txt', '.js', '.css', '.html', '.json', '.xml', '.yaml', '.log'];
+
+    if (file.mimeType && editableMimeTypes.includes(file.mimeType)) {
+        return true;
+    }
+    if (file.name) {
+        return editableExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+    }
+    return false;
+}
+
+/**
+ * Clears editor state and hides buttons. Called before opening any new file.
+ */
+function resetEditorState() {
+    editorToggleButton.classList.add('hidden');
+    editorSaveButton.classList.add('hidden');
+    isEditMode = false;
+    currentTextFile = null;
+    currentRawText = '';
+
+
+    contentDisplay.classList.remove('iframe-active', 'flashcard-mode', 'editor-active');
+}
+
+// In script.js, modify the openFile function
+
+// In script.js, replace the entire openFile function with this one
+
 function openFile(file) {
-    // Reset markdown editor state
-    mdToggleButton.classList.add('hidden');
-    mdSaveButton.classList.add('hidden');
-    isMarkdownEditMode = false;
-    currentMarkdownFile = null;
-    currentRawMarkdown = '';
+    resetEditorState();
 
+    const mimeType = file.mimeType || '';
     const fileName = file.name || '';
-    if (fileName.toLowerCase().endsWith('.md')) {
-        viewAsMarkdown(file);
-    } else if (file.mimeType && file.mimeType.startsWith('image/')) {
-        viewAsDefault(file, 'image');
-    } else if (file.mimeType && file.mimeType.startsWith('video/')) {
-        viewAsDefault(file, 'video');
-    } else if (file.mimeType === 'application/pdf') {
-        viewAsDefault(file, 'pdf');
-    } else if (fileName.toLowerCase().includes('flashcards')) {
+
+    // --- START of CHANGE ---
+    // Rule 1 (HIGHEST PRIORITY): Check for the specific .flashcards extension first.
+    if (fileName.toLowerCase().endsWith('.flashcards')) {
         viewAsFlashcards(file);
-    } else {
-        viewAsPlainText(file);
+    }
+    // --- END of CHANGE ---
+
+    // Rule 2: Check for other editable text files.
+    else if (isEditableTextFile(file)) {
+        initializeTextEditor(file);
+    }
+
+    // Rule 3: Check for all iframe-able file types (Google, Office, PDF).
+    else if (
+        mimeType === 'application/vnd.google-apps.document' ||
+        mimeType === 'application/vnd.google-apps.spreadsheet' ||
+        mimeType === 'application/vnd.google-apps.presentation' ||
+        mimeType === 'application/pdf' ||
+        mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || // .docx
+        mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||       // .xlsx
+        mimeType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation'  // .pptx
+    ) {
+        viewAsDefault(file, 'iframe');
+    }
+
+    // Rule 4: Handle standard media types.
+    else if (mimeType.startsWith('image/')) {
+        viewAsDefault(file, 'image');
+    } else if (mimeType.startsWith('video/')) {
+        viewAsDefault(file, 'video');
+    }
+
+    // Rule 5 (FALLBACK): If nothing else matches, open as a read-only text preview.
+    else {
+        initializeTextEditor(file, true);
     }
 }
 
 async function fetchFileContent(file) {
     if (file.mimeType && file.mimeType.includes('google-apps')) {
-        const exportType = file.mimeType.includes('document') ? 'text/plain' : 'text/csv';
-        const res = await gapi.client.drive.files.export({ fileId: file.id, mimeType: exportType });
+        const res = await gapi.client.drive.files.export({ fileId: file.id, mimeType: 'text/plain' });
         return res.body;
     }
     const res = await gapi.client.drive.files.get({ fileId: file.id, alt: 'media' });
@@ -547,19 +393,33 @@ async function fetchFileContent(file) {
 
 function viewAsDefault(file, type) {
     const token = gapi.client.getToken()?.access_token;
-    if (!token) return contentDisplay.innerHTML = `<h2>Error: Access token missing.</h2>`;
-
-    if (type === 'pdf') {
-        if (!file.webViewLink) return contentDisplay.innerHTML = `<h2>Preview not available</h2>`;
-        contentDisplay.innerHTML = `<iframe src="${file.webViewLink.replace('/view', '/preview')}" class="file-iframe"></iframe>`;
+    if (!token) {
+        contentDisplay.innerHTML = `<h2>Error: Access token missing.</h2>`;
         return;
     }
-    
-    if (!file.webContentLink) return contentDisplay.innerHTML = `<h2>Preview not available.</h2>`;
-    
+
+    // --- START of CHANGE ---
+    // Handle all iframe previews (PDF, Docs, Sheets, Slides) with one block
+    if (type === 'iframe') {
+        contentDisplay.classList.add('iframe-active'); // Use a generic class
+        if (!file.webViewLink) {
+            contentDisplay.innerHTML = `<h2>Preview not available for this file.</h2>`;
+            return;
+        }
+        // The preview URL works for all Google Workspace files and PDFs
+        const previewUrl = file.webViewLink.replace('/view', '/preview');
+        contentDisplay.innerHTML = `<iframe src="${previewUrl}" class="file-iframe"></iframe>`;
+        return;
+    }
+    // --- END of CHANGE ---
+
+    // This part for images and videos remains the same
+    if (!file.webContentLink) {
+        contentDisplay.innerHTML = `<h2>Preview not available.</h2>`;
+        return;
+    }
     let url = file.webContentLink.replace('&export=download', '');
     const authenticatedUrl = `${url}&access_token=${token}`;
-    
     let element = '';
     if (type === 'image') {
         element = `<img src="${authenticatedUrl}" alt="${file.name}">`;
@@ -568,114 +428,122 @@ function viewAsDefault(file, type) {
     }
     contentDisplay.innerHTML = `<h2>${file.name}</h2>${element}`;
 }
-
-async function viewAsMarkdown(file) {
+/**
+ * Initializes the editor for any text-based file.
+ * @param {object} file - The file object.
+ * @param {boolean} [readOnly=false] - If true, the edit button will be hidden.
+ */
+async function initializeTextEditor(file, readOnly = false) {
     contentDisplay.innerHTML = `<h1>Loading ${file.name}...</h1>`;
     try {
         const content = await fetchFileContent(file);
-        currentMarkdownFile = file;
-        currentRawMarkdown = content;
-        mdToggleButton.classList.remove('hidden');
-        renderMarkdownReadMode(content);
-    } catch (err) { contentDisplay.innerHTML = `<h1>Error: Could not load text content.</h1>`; }
-}
-
-function renderMarkdownReadMode(markdownText) {
-    contentDisplay.innerHTML = marked.parse(markdownText);
-    mdToggleButton.querySelector('.material-icons').textContent = 'edit';
-    mdToggleButton.title = 'Edit Mode';
-    mdSaveButton.classList.add('hidden');
-    isMarkdownEditMode = false;
-}
-
-function renderMarkdownEditMode(markdownText) {
-    contentDisplay.innerHTML = '';
-    const editor = document.createElement('textarea');
-    editor.id = 'markdown-editor';
-    editor.value = markdownText;
-    contentDisplay.appendChild(editor);
-    mdToggleButton.querySelector('.material-icons').textContent = 'menu_book';
-    mdToggleButton.title = 'Read Mode';
-    mdSaveButton.classList.remove('hidden');
-    isMarkdownEditMode = true;
-}
-
-function toggleMarkdownMode() {
-    if (isMarkdownEditMode) {
-        const editor = document.getElementById('markdown-editor');
-        currentRawMarkdown = editor.value; // Update raw content from editor
-        renderMarkdownReadMode(currentRawMarkdown);
-    } else {
-        renderMarkdownEditMode(currentRawMarkdown);
+        currentTextFile = file;
+        currentRawText = content;
+        if (!readOnly) {
+            editorToggleButton.classList.remove('hidden');
+        }
+        renderTextViewer(file, content);
+    } catch (err) {
+        contentDisplay.innerHTML = `<h1>Error: Could not load file content.</h1>`;
+        console.error("Error fetching file content:", err);
     }
 }
 
-async function saveMarkdownFile() {
-    if (!isMarkdownEditMode || !currentMarkdownFile) return;
+/**
+ * Renders the "Read Mode" view for a text file.
+ * @param {object} file - The file object.
+ * @param {string} content - The raw text content of the file.
+ */
+function renderTextViewer(file, content) {
+    contentDisplay.classList.remove('editor-active');
+    if (file.name && file.name.toLowerCase().endsWith('.md')) {
+        contentDisplay.innerHTML = marked.parse(content);
+    } else {
+        const pre = document.createElement('pre');
+        pre.textContent = content;
+        contentDisplay.innerHTML = '';
+        contentDisplay.appendChild(pre);
+    }
+    editorToggleButton.querySelector('.material-icons').textContent = 'edit';
+    editorToggleButton.title = 'Edit Mode';
+    editorSaveButton.classList.add('hidden');
+    isEditMode = false;
+}
 
-    const editor = document.getElementById('markdown-editor');
+/**
+ * Renders the "Edit Mode" view with a textarea.
+ */
+function renderEditMode() {
+    contentDisplay.classList.add('editor-active');
+    contentDisplay.innerHTML = '';
+    const editor = document.createElement('textarea');
+    editor.id = 'text-editor';
+    editor.value = currentRawText;
+    contentDisplay.appendChild(editor);
+
+    editorToggleButton.querySelector('.material-icons').textContent = 'menu_book';
+    editorToggleButton.title = 'Read Mode';
+    editorSaveButton.classList.remove('hidden');
+    isEditMode = true;
+}
+
+/**
+ * Toggles between read and edit modes.
+ */
+function toggleEditorMode() {
+    if (isEditMode) {
+        const editor = document.getElementById('text-editor');
+        currentRawText = editor.value;
+        renderTextViewer(currentTextFile, currentRawText);
+    } else {
+        renderEditMode();
+    }
+}
+
+/**
+ * Saves the content of the text editor back to Google Drive.
+ */
+async function saveTextFile() {
+    if (!isEditMode || !currentTextFile) return;
+
+    const editor = document.getElementById('text-editor');
     const newContent = editor.value;
 
-    mdSaveButton.textContent = 'Saving...';
-    mdSaveButton.disabled = true;
+    editorSaveButton.textContent = 'Saving...';
+    editorSaveButton.disabled = true;
 
     try {
-        await updateFileContent(currentMarkdownFile.id, newContent);
-        currentRawMarkdown = newContent;
-        // Switch to read mode to show the saved result
-        renderMarkdownReadMode(newContent);
+        await updateFileContent(currentTextFile.id, newContent, currentTextFile.mimeType || 'text/plain');
+        currentRawText = newContent;
+        renderTextViewer(currentTextFile, newContent); // Switch to read mode
     } catch (err) {
         alert("Could not save file. See console for details.");
         console.error("Save error:", err);
     } finally {
-        mdSaveButton.textContent = 'Save';
-        mdSaveButton.disabled = false;
+        editorSaveButton.textContent = 'Save';
+        editorSaveButton.disabled = false;
     }
 }
 
-async function updateFileContent(fileId, content) {
+async function updateFileContent(fileId, content, contentType = 'text/plain') {
     const token = gapi.client.getToken()?.access_token;
     if (!token) throw new Error("Authentication token is missing.");
-
     await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
         method: 'PATCH',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'text/markdown',
-        },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': contentType },
         body: content,
     });
 }
 
-async function viewAsPlainText(file) {
-    contentDisplay.innerHTML = `<h1>Loading ${file.name}...</h1>`;
-    try {
-        const content = await fetchFileContent(file);
-        const pre = document.createElement('pre');
-        pre.textContent = content;
-        contentDisplay.innerHTML = '';
-        const title = document.createElement('h2');
-        title.textContent = file.name;
-        contentDisplay.appendChild(title);
-        contentDisplay.appendChild(pre);
-    } catch (err) { contentDisplay.innerHTML = `<h1>Error: Could not load text content.</h1>`; }
-}
-
-
 /*
  * ====================================================================================
- * AI BOT HELPERS (for bot.js)
+ * AI BOT HELPERS & APP START
  * ====================================================================================
  */
 window.driveApi = {
     createFile: createNewFile,
-    getCurrentFolderId: () => selectedFile.id || 'root'
+    getCurrentFolderId: () => selectedFile.id || 'root',
+    getGeminiApiKey: () => geminiApiKey
 };
 
-
-/*
- * ====================================================================================
- * START THE APPLICATION
- * ====================================================================================
- */
 initializeApp();

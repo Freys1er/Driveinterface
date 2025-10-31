@@ -30,7 +30,6 @@ body {
     display: flex;
     height: 100vh;
     overflow: hidden;
-    transition: grid-template-columns 0.3s ease-in-out;
 }
 
 #login-screen {
@@ -38,20 +37,6 @@ body {
     justify-content: center;
     align-items: center;
     height: 100vh;
-}
-
-#authorize-button {
-    background-color: var(--surface-color);
-    color: var(--text-color);
-    border: 1px solid var(--border-color);
-    padding: 12px 24px;
-    font-size: 16px;
-    cursor: pointer;
-    border-radius: 8px;
-}
-
-#authorize-button:hover {
-    background-color: var(--hover-color);
 }
 
 /* ==========================================================================
@@ -64,13 +49,15 @@ body {
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
-    transition: transform 0.3s ease-out;
+    position: relative;
     z-index: 100;
+    transition: transform 0.3s ease-out;
 }
 
 .nav-header {
     padding: 10px;
     border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
 }
 
 .action-buttons {
@@ -80,22 +67,23 @@ body {
     justify-content: center;
 }
 
-.action-buttons button {
+.action-buttons button,
+.action-buttons .icon-button {
     background: none;
     border: none;
     cursor: pointer;
     padding: 5px;
     color: var(--text-color-muted);
     border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.action-buttons button:hover {
+.action-buttons button:hover,
+.action-buttons .icon-button:hover {
     color: var(--text-color);
     background-color: var(--surface-color);
-}
-
-#focus-button.active {
-    color: var(--focus-color);
 }
 
 .material-icons {
@@ -103,62 +91,19 @@ body {
     font-size: 22px;
 }
 
-/* ==========================================================================
-   Path and Search Bars
-   ========================================================================== */
 .nav-controls {
     padding: 10px;
-}
-
-#path-bar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    color: var(--text-color-muted);
-    font-size: 12px;
-    margin-bottom: 10px;
-    line-height: 1.5;
-}
-
-.path-segment {
-    cursor: pointer;
-    padding: 2px 4px;
-    border-radius: 3px;
-}
-
-.path-segment:hover {
-    background-color: var(--surface-color);
-    color: var(--text-color);
-}
-
-.path-separator {
-    margin: 0 2px;
-}
-
-#search-input {
-    width: 100%;
-    box-sizing: border-box;
-    background-color: var(--surface-color);
-    border: 1px solid var(--border-color);
-    border-radius: 5px;
-    color: var(--text-color);
-    padding: 8px;
-    font-size: 14px;
-}
-
-#search-input:focus {
-    outline: none;
-    border-color: var(--focus-color);
+    flex-shrink: 0;
 }
 
 /* ==========================================================================
-   File Tree
+   File Tree (BUTTON FIX)
    ========================================================================== */
 .file-tree-container {
-    overflow: auto;
+    overflow-y: auto;
     flex-grow: 1;
     min-height: 0;
-    padding: 0 10px;
+    padding: 0 10px 10px;
 }
 
 .file-tree,
@@ -169,14 +114,6 @@ body {
 
 .file-tree ul {
     padding-left: 20px;
-}
-
-.file-tree li.collapsed>ul {
-    display: none;
-}
-
-.file-tree li.hidden-by-search {
-    display: none;
 }
 
 .file-row {
@@ -213,12 +150,15 @@ body {
     text-overflow: ellipsis;
 }
 
+/* FIX: Hide action buttons by default */
 .file-actions {
     display: flex;
     visibility: hidden;
+    /* Use visibility to keep space reserved */
     flex-shrink: 0;
 }
 
+/* FIX: Show action buttons only on hover or when selected */
 .file-row:hover .file-actions,
 .file-row.selected .file-actions {
     visibility: visible;
@@ -247,7 +187,7 @@ body {
 
 
 /* ==========================================================================
-   Content Area & Viewers
+   Content Area & Viewers (EDITOR & TEXT FIX)
    ========================================================================== */
 #content-area {
     flex-grow: 1;
@@ -255,7 +195,7 @@ body {
     flex-direction: column;
     overflow: hidden;
     position: relative;
-    transition: width 0.3s ease-in-out;
+    min-width: 0;
 }
 
 .content-header {
@@ -264,6 +204,12 @@ body {
     align-items: center;
     padding: 10px;
     flex-shrink: 0;
+    z-index: 10;
+    background-color: var(--background-color);
+}
+
+#mobile-menu-toggle {
+    display: none;
 }
 
 .content-actions {
@@ -285,34 +231,7 @@ body {
     justify-content: center;
 }
 
-#mobile-menu-toggle {
-    display: none; /* Hidden by default, shown in media query */
-}
-
-#file-content-display {
-    padding: 0 20px 20px 20px;
-    overflow-y: auto;
-    flex-grow: 1;
-}
-
-/* Markdown Editor Styling */
-#markdown-editor {
-    width: 100%;
-    height: 100%;
-    box-sizing: border-box;
-    background-color: var(--surface-color);
-    color: var(--text-color);
-    border: none;
-    padding: 10px;
-    font-family: monospace;
-    font-size: 14px;
-    resize: none;
-}
-#markdown-editor:focus {
-    outline: 1px solid var(--focus-color);
-}
-
-#md-save-button {
+#editor-save-button {
     background-color: var(--focus-color);
     color: white;
     border: none;
@@ -321,107 +240,151 @@ body {
     cursor: pointer;
     font-weight: bold;
 }
-#md-save-button:disabled {
+
+#editor-save-button:disabled {
     opacity: 0.6;
     cursor: not-allowed;
 }
 
 
-#file-content-display img,
-#file-content-display video {
-    max-width: 100%;
-    border-radius: 8px;
-    margin-top: 1em;
+#file-content-display {
+    padding: 20px;
+    overflow-y: auto;
+    flex-grow: 1;
+    color: var(--text-color);
 }
 
-#file-content-display .file-iframe {
-    width: 100%;
-    height: calc(100% - 10px); /* Adjust for padding */
-    border: none;
-}
-
+/* FIX: Style for the plain text viewer */
 #file-content-display pre {
     background-color: var(--surface-color);
     padding: 1em;
     border-radius: 5px;
     white-space: pre-wrap;
     word-wrap: break-word;
+    font-family: monospace;
+    font-size: 14px;
 }
 
-#file-content-display h1,
-#file-content-display h2,
-#file-content-display h3 {
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 0.3em;
-}
-
-/* Fullscreen Mode */
-#content-area.fullscreen {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color: var(--background-color);
-    z-index: 1000;
+/* NEW: Styles for the universal text editor */
+#file-content-display.editor-active {
     padding: 0;
+    /* Remove padding for edge-to-edge editor */
 }
 
-#content-area.fullscreen .content-header {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    padding: 0;
-}
-
-#content-area.fullscreen #mobile-menu-toggle,
-#content-area.fullscreen #toggle-bot-button {
-    display: none; /* Hide toggles in fullscreen */
-}
-
-#content-area.fullscreen #file-content-display {
-    padding: 20px;
+#text-editor {
+    width: 100%;
     height: 100%;
     box-sizing: border-box;
+    background-color: var(--surface-color);
+    color: var(--text-color);
+    border: none;
+    padding: 15px;
+    font-family: monospace;
+    font-size: 14px;
+    resize: none;
 }
 
+#text-editor:focus {
+    outline: none;
+}
+
+
 /* ==========================================================================
-   Bot Container (Collapsible)
+   Bot & Mobile (BOT BUTTON FIX)
    ========================================================================== */
 #bot-container {
-    width: 350px; /* Default width */
+    width: 350px;
+    flex-shrink: 0;
     transition: width 0.3s ease-in-out, min-width 0.3s ease-in-out;
     overflow: hidden;
     min-width: 350px;
+    border-left: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
 }
 
 #app-container.bot-collapsed #bot-container {
     width: 0;
     min-width: 0;
+    border-left: none;
 }
 
-/* ==========================================================================
-   Mobile Responsive Styles
-   ========================================================================== */
-@media (max-width: 1024px) {
-    #bot-container {
-        display: none; /* Hide bot on tablets */
-    }
-    #toggle-bot-button {
-        display: none !important;
-    }
+/* In style.css, add this block inside the */
+/* "Path and Search Bars" section (around line 125) */
+
+#search-input {
+    width: 100%;
+    box-sizing: border-box;
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    color: var(--text-color);
+    padding: 8px 12px;
+    font-size: 14px;
+}
+
+#search-input:focus {
+    outline: none;
+    border-color: var(--focus-color);
+}
+
+#file-content-display.flashcard-mode {
+    /* Take the container out of the normal document flow */
+    position: absolute;
+    
+    /* Pin it to the edges of its parent (#content-area) */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    
+    /* Override any default padding for a true full-screen experience */
+    padding: 0 !important;
+    
+    /* Ensure it appears on top of any other stray content */
+    z-index: 50;
+    
+    /* It must also be a flex container for its own content to work */
+    display: flex;
+}
+
+#file-content-display.flashcard-mode {
+    padding: 0;
+    /* Override the default 20px padding */
+    display: flex;
+    /* Ensure it's a flex container for the flashcard content */
+    height: 100%;
+    /* Force it to take up the full height of its parent */
+}
+
+#file-content-display.iframe-active {
+    padding: 0;
+    /* Remove padding for an edge-to-edge view */
+    overflow: hidden;
+    /* Prevent double scrollbars */
+}
+
+/* This rule for .file-iframe remains the same and is correct */
+.file-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
 }
 
 @media (max-width: 768px) {
-    #app-container {
-        flex-direction: column;
+
+    /* Hide the bot on small phone screens for more space */
+    #bot-container {
+        display: none;
+        width: 100%;
     }
 
     #mobile-menu-toggle {
-        display: flex !important;
+        display: flex;
     }
+
     .content-actions {
-        margin-left: auto; /* Push action buttons to the right on mobile */
+        margin-left: auto;
     }
 
     #nav-close-button {
@@ -429,20 +392,14 @@ body {
         position: absolute;
         top: 10px;
         right: 10px;
-        color: var(--text-color);
-    }
-    
-    .action-buttons #signout-button {
-        display: none;
     }
 
     #file-navigator {
         position: fixed;
         height: 100%;
         transform: translateX(-100%);
-        width: 85%;
-        max-width: 340px;
         box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
+        width: 100%;
     }
 
     #file-navigator.visible {

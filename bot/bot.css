@@ -25,6 +25,12 @@
     font-size: 16px;
 }
 
+.bot-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .bot-action-button {
     background: none;
     border: none;
@@ -34,12 +40,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    border-radius: 50%;
 }
 
 .bot-action-button:hover {
     color: var(--text-color);
+    background-color: var(--surface-color);
 }
-
 
 /* ==========================================================================
    Bot Messages
@@ -91,7 +98,6 @@
     opacity: 0.8;
 }
 
-/* For Markdown rendered content inside bot messages */
 .bot-message pre {
     background-color: #00000055;
     padding: 0.8em;
@@ -108,7 +114,6 @@
     font-size: 0.9em;
 }
 
-/* Typing Indicator */
 .typing-indicator span {
     height: 8px;
     width: 8px;
