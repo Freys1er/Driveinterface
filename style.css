@@ -30,6 +30,7 @@ body {
     display: flex;
     height: 100vh;
     overflow: hidden;
+    transition: grid-template-columns 0.3s ease-in-out;
 }
 
 #login-screen {
@@ -56,111 +57,27 @@ body {
 /* ==========================================================================
    File Navigator & Header
    ========================================================================== */
-/* ==========================================================================
-   File Navigator & Header (Update to support mobile)
-   ========================================================================== */
 #file-navigator {
-    width: 300px;
+    width: 320px;
     flex-shrink: 0;
     background-color: var(--background-color);
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
-    /* NEW: Add transition for smooth animation */
     transition: transform 0.3s ease-out;
-}
-
-/* NEW: Styles for the Mobile Menu Toggle Button */
-#mobile-menu-toggle {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    background-color: var(--surface-color);
-    color: var(--text-color);
-    border: none;
-    border-radius: 5px;
-    padding: 8px;
-    cursor: pointer;
-    z-index: 50;
-    /* Above the content area */
-}
-
-/* ==========================================================================
-   Mobile Responsive Styles
-   ========================================================================== */
-@media (max-width: 768px) {
-
-    /* Show the mobile menu toggle button */
-    #mobile-menu-toggle {
-        display: block !important;
-    }
-
-    /* NEW: Show the close button inside the nav-header on mobile */
-    #nav-close-button {
-        display: block !important;
-        /* Make it visible */
-        order: -1;
-        /* Place it at the start of the flex container */
-        color: var(--text-color);
-        /* Make it more prominent */
-    }
-
-    /* Hide the signout button for a cleaner header on small screens */
-    #signout-button {
-        display: none !important;
-    }
-
-    /* Make the content area take full width */
-    #content-area {
-        flex-grow: 1;
-        padding: 20px;
-        overflow-y: auto;
-        box-sizing: border-box;
-    }
-
-    /* Show the mobile menu button */
-    #mobile-menu-toggle {
-        display: block !important;
-        /* Override the hidden class from HTML */
-    }
-
-    /* Initially hide the file navigator off-screen */
-    #file-navigator {
-        position: fixed;
-        height: 100vh;
-        z-index: 100;
-        transform: translateX(-100%);
-        /* Increase width slightly for better mobile use */
-        width: 100%;
-        box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
-    }
-
-    /* Class to show the file navigator */
-    #file-navigator.visible {
-        transform: translateX(0);
-    }
-
-    /* Hide scrollbars on content area if the menu is open (optional) */
-    /* If you want to dim the background, you could add an overlay here */
-}
-
-
-/* Hide it on desktop */
-#nav-close-button {
-    display: none;
+    z-index: 100;
 }
 
 .nav-header {
     padding: 10px;
     border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
 }
 
 .action-buttons {
     display: flex;
-    gap: 10px;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
 }
 
 .action-buttons button {
@@ -169,10 +86,12 @@ body {
     cursor: pointer;
     padding: 5px;
     color: var(--text-color-muted);
+    border-radius: 4px;
 }
 
 .action-buttons button:hover {
     color: var(--text-color);
+    background-color: var(--surface-color);
 }
 
 #focus-button.active {
@@ -198,6 +117,7 @@ body {
     color: var(--text-color-muted);
     font-size: 12px;
     margin-bottom: 10px;
+    line-height: 1.5;
 }
 
 .path-segment {
@@ -259,19 +179,15 @@ body {
     display: none;
 }
 
-/* ==========================================================================
-   File Tree
-   ========================================================================== */
-/* ... existing styles ... */
-
 .file-row {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     padding: 4px;
     cursor: pointer;
     border-radius: 4px;
+    gap: 8px;
 }
-/* ... existing styles ... */
 
 .file-label {
     display: flex;
@@ -280,6 +196,7 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .icon {
@@ -292,48 +209,35 @@ body {
 
 .file-name {
     padding-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.rename-button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0 8px;
+.file-actions {
+    display: flex;
     visibility: hidden;
-    /* CHANGE: Removed margin-left: auto; to allow delete button next to it */
-    margin-left: 0; 
-    color: var(--text-color-muted);
-}
-/* NEW: Delete Button Styling - follows rename button style */
-.delete-button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0 8px;
-    visibility: hidden;
-    margin-left: 0; 
-    color: var(--text-color-muted);
-}
-/* END NEW */
-
-/* CHANGE: Add margin-left: auto to the first action button to push them to the right */
-.file-row .rename-button {
-    margin-left: auto; 
+    flex-shrink: 0;
 }
 
-
-.file-row:hover .rename-button,
-/* NEW: Show delete button on hover */
-.file-row:hover .delete-button {
+.file-row:hover .file-actions,
+.file-row.selected .file-actions {
     visibility: visible;
 }
 
-.rename-button:hover {
+.file-actions button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: var(--text-color-muted);
+}
+
+.file-actions button:hover {
     color: var(--text-color);
 }
-/* NEW: Hover for delete button */
-.delete-button:hover {
-    color: #ff4d4d; /* Red color for delete action */
+
+.file-actions .delete-button:hover {
+    color: #ff4d4d;
 }
 
 .file-row:hover,
@@ -343,28 +247,97 @@ body {
 
 
 /* ==========================================================================
-   Content Area & Viewers & Modal (Updated)
+   Content Area & Viewers
    ========================================================================== */
 #content-area {
     flex-grow: 1;
-    /* REVERTED/SIMPLIFIED FOR GRID CENTERING */
-    padding: 20px; 
-    overflow-y: auto;
-    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    transition: width 0.3s ease-in-out;
 }
 
-/* Ensure no specific styles for #file-content-display in main style.css */
-/* (Unless you need it, but keep it simple) */
-#file-content-display {
-    /* Set padding for default (non-viewer) content */
-    padding: 0;
+.content-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    flex-shrink: 0;
 }
+
+.content-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.icon-button {
+    background-color: var(--surface-color);
+    color: var(--text-color);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#mobile-menu-toggle {
+    display: none; /* Hidden by default, shown in media query */
+}
+
+#file-content-display {
+    padding: 0 20px 20px 20px;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+/* Markdown Editor Styling */
+#markdown-editor {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    background-color: var(--surface-color);
+    color: var(--text-color);
+    border: none;
+    padding: 10px;
+    font-family: monospace;
+    font-size: 14px;
+    resize: none;
+}
+#markdown-editor:focus {
+    outline: 1px solid var(--focus-color);
+}
+
+#md-save-button {
+    background-color: var(--focus-color);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: bold;
+}
+#md-save-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 
 #file-content-display img,
 #file-content-display video {
     max-width: 100%;
     border-radius: 8px;
     margin-top: 1em;
+}
+
+#file-content-display .file-iframe {
+    width: 100%;
+    height: calc(100% - 10px); /* Adjust for padding */
+    border: none;
 }
 
 #file-content-display pre {
@@ -382,215 +355,97 @@ body {
     padding-bottom: 0.3em;
 }
 
-.modal-overlay {
+/* Fullscreen Mode */
+#content-area.fullscreen {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-}
-
-.modal-content {
-    background-color: var(--surface-color);
-    padding: 20px;
-    border-radius: 8px;
-    width: 90%;
-    max-width: 400px;
-    border: 1px solid var(--border-color);
-}
-
-#modal-options button {
-    display: block;
-    width: 100%;
-    padding: 12px;
-    margin-bottom: 10px;
-    background-color: var(--background-color);
-    color: var(--text-color);
-    border: 1px solid var(--border-color);
-    border-radius: 5px;
-    cursor: pointer;
-    text-align: left;
-}
-
-#modal-options button:hover {
-    background-color: var(--hover-color);
-}
-
-#modal-close-button {
-    width: 100%;
-    padding: 10px;
-    background-color: #333;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    margin-top: 10px;
-}
-
-/* START OF FILE flashcards.css */
-/* --- Flashcard Specific Styling (Updated for Grid + vh centering) --- */
-
-/* Base Styles to integrate with main app theme */
-#file-content-display { 
-    padding: 0 !important; 
-    display: flex;             /* 1. Make the main content area a flex container */
-    flex-direction: column;    /* 2. Stack elements vertically */
-    /* NEW: Use 100vh for a reliable height based on viewport */
+    width: 100vw;
     height: 100vh;
-    /* NEW: Offset the 20px padding from the parent #content-area */
-    margin: -20px;
-    width: calc(100% + 40px);
-}
-
-/* Base theme change for AMOLED Black */
-#file-content-display {
-    background-color: var(--background-color) !important; /* Ensure AMOLED black background */
-    overflow-y: hidden !important; /* Prevents scrollbars in the main content area */
-}
-
-
-#file-content-display header { 
-    display: flex; 
-    justify-content: space-between;
-    align-items: center; 
-    padding: 10px; 
-    border-bottom: 1px solid var(--border-color);
-    flex-shrink: 0; 
-    /* NEW: Define a fixed height for calculation purposes */
-    height: 50px; 
-}
-
-/* Header Elements */
-#file-content-display .header-btn { 
-    background: none; 
-    border: none; 
-    color: var(--text-color);
-    font-size: 16px; 
-    cursor: pointer; 
-    padding: 0 10px; 
-}
-
-#card-counter {
-    margin: 0;
-    text-align: center;
-    flex-grow: 1; 
-    font-size: 18px; 
-    font-weight: bold;
-}
-
-/* Screen Structure */
-.screen { 
-    display: none;
-    flex-direction: column;
-    flex-grow: 1;              /* Allows screen to take up remaining height */
-    /* NEW: Now use calc() based on viewport and fixed header height */
-    height: calc(100vh - 50px);
-    overflow-y: auto; /* Allow scrolling within the screen content */
-}
-
-.screen.active {
-    display: flex;
-}
-
-/* Study View Main */
-#flashcard-study-screen main.study-main {
-    flex-grow: 1;              
-    /* NEW: Use Grid for Centering */
-    display: grid;
-    place-items: center; /* THIS IS THE FINAL VERTICAL & HORIZONTAL CENTER ALIGNMENT */
-    padding: 20px;
-    box-sizing: border-box;
-    /* Ensure it takes full height of its parent (.screen) */
-    height: 100%;
-}
-
-/* Flashcard Centering and Flip Animation */
-.flashcard-container {
-    perspective: 1000px;
-    position: relative;
-    /* NEW: Let the grid container center the card */
-    display: block; 
-}
-
-#flashcard {
-    width: 80vw;
-    height: 60vh;
-    max-width: 400px;
-    max-height: 500px; /* NEW: Added max height for larger screens */
-    min-height: 200px;
-    position: relative;
-    transform-style: preserve-3d;
-    user-select: none;
-}
-
-#flashcard.is-flipped {
-    transform: rotateY(180deg);
-}
-
-#flashcard.is-flipping {
-    transition: transform 0.6s;
-}
-
-.card-face {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    backface-visibility: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 20px;
-    box-sizing: border-box;
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    font-size: 24px;
-    /* CHANGE: Ensure card face uses a dark surface color, keeping it readable */
-    background-color: var(--surface-color); /* #1c1c1e from :root */
-}
-
-.card-back {
-    transform: rotateY(180deg);
-}
-
-/* Editor View */
-.editor-main {
-    flex-grow: 1;
+    background-color: var(--background-color);
+    z-index: 1000;
     padding: 0;
-    /* NEW: Ensure this takes full height */
-    height: 100%; 
 }
 
-#editor {
-    width: 100%;
-    height: 100%;
-    box-sizing: border-box;
-    /* CHANGE: Ensure editor uses a dark surface color */
-    background-color: var(--surface-color); 
-    color: var(--text-color);
-    border: none;
-    padding: 10px;
-    font-family: monospace;
-    font-size: 14px;
-    resize: none;
-}
-
-/* Smart Suggestion */
-#smart-suggestion {
+#content-area.fullscreen .content-header {
     position: absolute;
     top: 10px;
-    left: 50%;
-    transform: translateX(-50%);
-    background-color: rgba(255, 255, 0, 0.8);
-    color: #000000;
-    padding: 8px 12px;
-    border-radius: 8px;
-    font-size: 14px;
-    display: none;
-    z-index: 100;
+    right: 10px;
+    padding: 0;
 }
-/* END OF FILE flashcards.css */
+
+#content-area.fullscreen #mobile-menu-toggle,
+#content-area.fullscreen #toggle-bot-button {
+    display: none; /* Hide toggles in fullscreen */
+}
+
+#content-area.fullscreen #file-content-display {
+    padding: 20px;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+/* ==========================================================================
+   Bot Container (Collapsible)
+   ========================================================================== */
+#bot-container {
+    width: 350px; /* Default width */
+    transition: width 0.3s ease-in-out, min-width 0.3s ease-in-out;
+    overflow: hidden;
+    min-width: 350px;
+}
+
+#app-container.bot-collapsed #bot-container {
+    width: 0;
+    min-width: 0;
+}
+
+/* ==========================================================================
+   Mobile Responsive Styles
+   ========================================================================== */
+@media (max-width: 1024px) {
+    #bot-container {
+        display: none; /* Hide bot on tablets */
+    }
+    #toggle-bot-button {
+        display: none !important;
+    }
+}
+
+@media (max-width: 768px) {
+    #app-container {
+        flex-direction: column;
+    }
+
+    #mobile-menu-toggle {
+        display: flex !important;
+    }
+    .content-actions {
+        margin-left: auto; /* Push action buttons to the right on mobile */
+    }
+
+    #nav-close-button {
+        display: block !important;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        color: var(--text-color);
+    }
+    
+    .action-buttons #signout-button {
+        display: none;
+    }
+
+    #file-navigator {
+        position: fixed;
+        height: 100%;
+        transform: translateX(-100%);
+        width: 85%;
+        max-width: 340px;
+        box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
+    }
+
+    #file-navigator.visible {
+        transform: translateX(0);
+    }
+}

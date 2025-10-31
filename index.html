@@ -4,13 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <link rel="icon"
-        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><path fill='%23007aff' d=%22M19.35 10.04C18.67 6.59 15.64 4 12 4c-3.72 0-6.81 2.58-7.71 6.04C1.88 10.96 0 13.56 0 16c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 20H6c-2.21 0-4-1.79-4-4 0-2.42 1.72-4.44 4.09-4.98L6 11l.24-.65C6.91 8.01 9.24 6 12 6c3.08 0 5.4 2.29 5.92 5.04l.26 1.25.17.89H19c1.65 0 3 1.35 3 3s-1.35 3-3 3z%22/></svg>">
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><path fill='%23007aff' d=%22M19.35 10.04C18.67 6.59 15.64 4 12 4c-3.72 0-6.81 2.58-7.71 6.04C1.88 10.96 0 13.56 0 16c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 20H6c-2.21 0-4-1.79-4-4 0-2.42 1.72-4.44 4.09-4.98L6 11l.24-.65C6.91 8.01 9.24 6 12 6c3.08 0 5.4 2.29 5.92 5.04l.26 1.25l.17.89H19c1.65 0 3 1.35 3 3s-1.35 3-3 3z%22/></svg>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Drive Interface</title>
     <!-- Google Material Icons -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <!-- Local Stylesheet -->
+    <!-- Local Stylesheets -->
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="bot/bot.css">
     <!-- Marked.js for Markdown Rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
@@ -31,16 +32,16 @@
                     <button id="unfocus-button" title="Unfocus/Go to Root" class="hidden"><span
                             class="material-icons">clear</span></button>
                     <button id="new-file-button" title="New File"><span class="material-icons">note_add</span></button>
+                    <button id="new-folder-button" title="New Folder"><span
+                            class="material-icons">create_new_folder</span></button>
                     <button id="upload-button" title="Upload File"><span class="material-icons">upload</span></button>
                     <button id="signout-button" title="Sign Out"><span class="material-icons">logout</span></button>
-
                     <button id="nav-close-button" title="Close Navigation" class="hidden"><span
                             class="material-icons">close</span></button>
                 </div>
                 <input type="file" id="file-upload-input" class="hidden">
             </div>
 
-            <!-- NEW: Path and Search bars -->
             <div class="nav-controls">
                 <div id="path-bar"></div>
                 <input type="search" id="search-input" placeholder="Search files...">
@@ -52,29 +53,48 @@
         </nav>
 
         <main id="content-area">
-            <button id="mobile-menu-toggle" title="Toggle File Navigation" class="hidden">
-                <span class="material-icons">menu</span>
-            </button>
+            <div class="content-header">
+                <button id="mobile-menu-toggle" title="Toggle File Navigation" class="hidden">
+                    <span class="material-icons">menu</span>
+                </button>
+                <div class="content-actions">
+                    <button id="md-save-button" class="hidden" title="Save Changes">Save</button>
+                    <button id="md-toggle-button" class="icon-button hidden" title="Toggle Edit/Read Mode">
+                        <span class="material-icons">edit</span>
+                    </button>
+                    <button id="fullscreen-button" class="icon-button" title="Toggle Fullscreen">
+                        <span class="material-icons">fullscreen</span>
+                    </button>
+                    <button id="toggle-bot-button" class="icon-button" title="Toggle AI Bot">
+                        <span class="material-icons">chat</span>
+                    </button>
+                </div>
+            </div>
             <div id="file-content-display">
                 <h1>Welcome</h1>
                 <p>Select a file to begin.</p>
             </div>
         </main>
 
-    </div>
+        <aside id="bot-container">
+            <div id="bot-header">
+                <h3>Gemini AI Bot</h3>
+                <label for="bot-file-upload-input" class="bot-action-button" title="Upload File to AI">
+                    <span class="material-icons">attach_file</span>
+                </label>
+                <input type="file" id="bot-file-upload-input" class="hidden">
+            </div>
+            <div id="bot-messages"></div>
+            <div id="bot-input-area">
+                <textarea id="bot-input" placeholder="Ask Gemini..."></textarea>
+                <button id="bot-send-button" title="Send"><span class="material-icons">send</span></button>
+            </div>
+        </aside>
 
-    <!-- Modal remains the same -->
-    <div id="viewer-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h3 id="modal-title">Open with:</h3>
-            <div id="modal-options"></div>
-            <button id="modal-close-button">Cancel</button>
-        </div>
     </div>
-
 
     <script src="flashcards/flashcards.js" defer></script>
-
+    <script src="bot/bot.js" defer></script>
     <script src="script.js" defer></script>
 
 </body>
