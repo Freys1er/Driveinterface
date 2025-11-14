@@ -1,0 +1,178 @@
+<style>
+    body,
+    html {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+    }
+
+    #network-canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        cursor: grab;
+    }
+
+    #network-canvas:active {
+        cursor: grabbing;
+    }
+</style>
+
+<canvas id="network-canvas"></canvas>
+
+<script>
+    (function () {
+        const canvas = document.getElementById('network-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+
+        // --- DATA PREPARATION ---
+        const contacts = App.getContacts();
+        const nodes = [];
+        const edges = [];
+
+        if (!contacts || contacts.length === 0) {
+            // Display a message if there are no contacts to graph
+            ctx.fillStyle = '#888';
+            ctx.font = '16px "Courier New"';
+            ctx.textAlign = 'center';
+            ctx.fillText('No contacts to display in network.', window.innerWidth / 2, window.innerHeight / 2);
+            return;
+        }
+
+        contacts.forEach(contact => {
+            nodes.push({
+                id: contact.id,
+                label: `${(contact.firstName || '').charAt(0)}${(contact.lastName || '').charAt(0)}`.toUpperCase(),
+                x: (Math.random() - 0.5) * window.innerWidth,
+                y: (Math.random() - 0.5) * window.innerHeight,
+                vx: 0,
+                vy: 0
+            });
+
+            try {
+                const relations = JSON.parse(contact.relations || '[]');
+                relations.forEach(rel => {
+                    if (rel.contactId) {
+                        // Ensure the target contact exists before creating an edge
+                        if (contacts.some(c => c.id === rel.contactId)) {
+                            edges.push({
+                                source: contact.id,
+                                target: rel.contactId
+                            });
+                        }
+                    }
+                });
+            } catch (e) {
+                console.error(`Could not parse relations for contact ${contact.id}:`, e);
+            }
+        });
+
+
+        // --- ALL THE CANVAS RENDERING & PHYSICS LOGIC GOES HERE ---
+        // This is a simplified version of your original physics engine.
+        // You can paste your more advanced version back in here.
+
+        let isPaused = false;
+        const REPULSION = 8000;
+        const SPRING_STIFFNESS = 0.01;
+        const DAMPING = 0.85;
+        const NODE_RADIUS = 20;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function update() {
+            if (isPaused) return;
+
+            // Apply forces
+            nodes.forEach(nodeA => {
+                nodes.forEach(nodeB => {
+                    if (nodeA === nodeB) return;
+                    const dx = nodeB.x - nodeA.x;
+                    const dy = nodeB.y - nodeA.y;
+                    let dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 1) dist = 1;
+                    const force = REPULSION / (dist * dist);
+                    nodeA.vx -= (force * dx / dist);
+                    nodeA.vy -= (force * dy / dist);
+                });
+            });
+
+            edges.forEach(edge => {
+                const source = nodes.find(n => n.id === edge.source);
+                const target = nodes.find(n => n.id === edge.target);
+                if (!source || !target) return;
+                const dx = target.x - source.x;
+                const dy = target.y - source.y;
+                source.vx += dx * SPRING_STIFFNESS;
+                source.vy += dy * SPRING_STIFFNESS;
+                target.vx -= dx * SPRING_STIFFNESS;
+                target.vy -= dy * SPRING_STIFFNESS;
+            });
+
+            // Update positions
+            nodes.forEach(node => {
+                node.vx *= DAMPING;
+                node.vy *= DAMPING;
+                node.x += node.vx;
+                node.y += node.vy;
+            });
+        }
+
+        function draw() {
+            ctx.save();
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Center the view
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+
+            // Draw edges
+            ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
+            ctx.lineWidth = 1;
+            edges.forEach(edge => {
+                const source = nodes.find(n => n.id === edge.source);
+                const target = nodes.find(n => n.id === edge.target);
+                if (source && target) {
+                    ctx.beginPath();
+                    ctx.moveTo(source.x, source.y);
+                    ctx.lineTo(target.x, target.y);
+                    ctx.stroke();
+                }
+            });
+
+            // Draw nodes
+            nodes.forEach(node => {
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, NODE_RADIUS, 0, 2 * Math.PI);
+                ctx.fillStyle = 'rgba(0, 255, 0, 0.2)';
+                ctx.fill();
+                ctx.strokeStyle = '#00ff00';
+                ctx.stroke();
+
+                ctx.fillStyle = '#00ff00';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = '14px "Courier New"';
+                ctx.fillText(node.label, node.x, node.y);
+            });
+
+            ctx.restore();
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+    })();
+</script>

@@ -1,0 +1,32 @@
+<style>
+    .contact-list-container { padding: 1rem; max-width: 800px; margin: 0 auto; }
+    .contact-list-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0, 255, 0, 0.3); padding-bottom: 0.5rem; }
+    .contact-list-header h1 { margin: 0; text-shadow: 0 0 5px rgba(0, 255, 0, 0.7); }
+    .contact-item { display: block; padding: 0.75rem; border-bottom: 1px solid rgba(0, 255, 0, 0.2); text-decoration: none; color: #00ff00; transition: background-color 0.2s ease; }
+    .contact-item:hover { background-color: rgba(0, 255, 0, 0.15); }
+    .message { text-align: center; padding: 2rem; opacity: 0.7; }
+    .btn { background: transparent; border: 1px solid #00ff00; color: #00ff00; padding: 0.5rem 1rem; font-family: inherit; cursor: pointer; text-decoration: none; display: inline-block; }
+</style>
+<div class="contact-list-container">
+    <div class="contact-list-header">
+        <h1>Contact List</h1>
+        <a href="#contact?new=true" class="btn">Add Contact</a>
+    </div>
+    <div id="contactList"><div class="message">Loading...</div></div>
+</div>
+<script>
+    (function() {
+        const contactListEl = document.getElementById('contactList');
+        const contacts = App.getContacts();
+        if (!contacts || contacts.length === 0) {
+            contactListEl.innerHTML = '<div class="message">No contacts found.</div>';
+            return;
+        }
+        const sortedContacts = contacts.sort((a, b) => (a.firstName || '').localeCompare(b.firstName || ''));
+        const contactsHtml = sortedContacts.map(contact => {
+            const name = `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || '[No Name]';
+            return `<a href="#contact?id=${contact.id}" class="contact-item">${name}</a>`;
+        }).join('');
+        contactListEl.innerHTML = contactsHtml;
+    })();
+</script>

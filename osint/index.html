@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ContactOS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        /* ... your existing styles ... */
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; color: #00ff00; font-family: 'Courier New', Courier, monospace; }
+        #app-wrapper { display: flex; flex-direction: column; height: 100vh; }
+        #app-header { display: none; justify-content: space-between; align-items: center; padding: 0.5rem 1rem; border-bottom: 1px solid rgba(0, 255, 0, 0.3); }
+        #app-header h1 { margin: 0; font-size: 1.5rem; }
+        #app-container { flex-grow: 1; overflow-y: auto; }
+        #auth-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; }
+        .btn { background: transparent; border: 1px solid #00ff00; color: #00ff00; padding: 0.75rem 1.5rem; font-family: inherit; cursor: pointer; transition: all 0.2s ease; margin-top: 1rem; font-size: 1.1rem; }
+    </style>
+    <!-- THE DEFINITIVE FIX #1: A GLOBAL ERROR HANDLER -->
+    <script>
+        window.onerror = function(message, source, lineno, colno, error) {
+            console.error("[Global Error Handler] Uncaught Error:", {
+                message: message,
+                source: source,
+                lineno: lineno,
+                colno: colno,
+                error: error
+            });
+            return true; // Prevents the default browser error dialog
+        };
+    </script>
+</head>
+<body>
+    <div id="app-wrapper">
+        <header id="app-header"><h1 >ContactOSINT</h1><button id="quick_signout_button" class="btn">Sign Out</button></header>
+        <main id="app-container">
+            <div id="auth-screen">
+                <h1>Welcome</h1><p>Please sign in with Google to continue.</p>
+                <button id="manual_signin_button" class="btn">Sign In with Google</button>
+                <p id="auth-status"></p>
+            </div>
+            <div id="page-content" style="display: none;"></div>
+        </main>
+    </div>
+    <!-- This div is for dynamically injecting scripts safely -->
+    <div id="script-container"></div>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
+    <script src="./js/auth.js"></script>
+    <script src="./js/drive.js"></script>
+    <script src="./js/ui.js"></script>
+    <script src="./js/main.js"></script>
+    <script>
+        const CLIENT_ID = '490934668566-dpcfvk9p5kfpk44ko8v1gl3d5i9f83qr.apps.googleusercontent.com';
+        window.onload = () => { App.init(); };
+    </script>
+</body>
+</html>
