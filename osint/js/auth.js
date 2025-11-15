@@ -1,59 +1,48 @@
-// js/auth.js (with extensive logging)
-
 const Auth = (() => {
+    const CLIENT_ID = '490934668566-dpcfvk9p5kfpk44ko8v1gl3d5i9f83qr.apps.googleusercontent.com'; // Replace with your Client ID
     const SCOPES = 'https://www.googleapis.com/auth/drive.file';
     let tokenClient;
+    let authCallback;
 
-    function init(onAuthenticated, onSignedOut) {
-        try {
-            console.log('[Auth] Initializing token client...');
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: SCOPES,
-                callback: (tokenResponse) => {
-                    console.log('[Auth] Token client callback triggered.');
-                    if (tokenResponse && tokenResponse.error) {
-                        console.error("[Auth] Token response contained an error:", tokenResponse);
-                        onSignedOut();
-                        return;
-                    }
-                    console.log("[Auth] Successfully received token. Storing it.", tokenResponse);
+    const onAuthChange = (callback) => {
+        authCallback = callback;
+    };
+
+    const init = () => {
+        gapi.load('client', async () => {
+            await gapi.client.init({
+                discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+            });
+        });
+
+        tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: CLIENT_ID,
+            scope: SCOPES,
+            callback: (tokenResponse) => {
+                if (tokenResponse.error) {
+                    console.error('Authentication error:', tokenResponse.error);
+                    authCallback(false);
+                } else {
                     gapi.client.setToken(tokenResponse);
-                    onAuthenticated();
+                    authCallback(true);
                 }
-            });
-            console.log('[Auth] Token client initialized successfully.');
-        } catch (error) {
-            console.error('[Auth] FATAL ERROR during token client initialization:', error);
-        }
-    }
+            },
+        });
+    };
 
-    function handleManualSignIn() {
-        console.log("[Auth] handleManualSignIn() called.");
-        if (tokenClient) {
-            console.log("[Auth] Requesting access token popup...");
-            tokenClient.requestAccessToken();
-        } else {
-            console.error("[Auth] CRITICAL: handleManualSignIn called but tokenClient is not initialized.");
-            alert("Authentication system failed to load. Please refresh the page.");
-        }
-    }
+    const signIn = () => {
+        tokenClient.requestAccessToken();
+    };
 
-    function signOut(onSignedOut) {
-        console.log("[Auth] signOut() called.");
+    const signOut = () => {
         const token = gapi.client.getToken();
-        if (token !== null) {
-            console.log("[Auth] Revoking existing token...");
+        if (token) {
             google.accounts.oauth2.revoke(token.access_token, () => {
-                console.log("[Auth] Token successfully revoked.");
                 gapi.client.setToken('');
-                onSignedOut();
+                authCallback(false);
             });
-        } else {
-            console.log("[Auth] No token to revoke. Simply signing out.");
-            onSignedOut();
         }
-    }
+    };
 
-    return { init, handleManualSignIn, signOut };
+    return { onAuthChange, init, signIn, signOut };
 })();

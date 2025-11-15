@@ -1,105 +1,146 @@
-// js/drive.js (with extensive logging)
+// osint/js/drive.js
 
 const Drive = (() => {
-    const OSINT_FOLDER_NAME = 'OSINT';
-    const CONTACTS_FILE_NAME = 'contacts.json';
-    let osintFolderId = null;
-    let contactsFileId = null;
+    const OSINT_FOLDER = 'OSINT_Contacts';
+    const CONTACTS_FILE = 'contacts.json';
+    let folderIdCache = null; // Use a simple cache to avoid repeated folder lookups
 
-    async function findOrCreateFolder(name) {
-        console.log(`[Drive] Searching for folder: '${name}'...`);
-        const query = `mimeType='application/vnd.google-apps.folder' and name='${name}' and 'root' in parents and trashed=false`;
-        const response = await gapi.client.drive.files.list({ q: query, fields: 'files(id)' });
+    /**
+     * Finds the app's folder, creating it if it doesn't exist.
+     * Caches the result for the session.
+     */
+    const findOrCreateFolder = async () => {
+        if (folderIdCache) return folderIdCache;
+
+        const query = `mimeType='application/vnd.google-apps.folder' and name='${OSINT_FOLDER}' and trashed=false`;
+        const response = await gapi.client.drive.files.list({
+            q: query,
+            fields: 'files(id)'
+        });
+
         if (response.result.files && response.result.files.length > 0) {
-            const foundId = response.result.files[0].id;
-            console.log(`[Drive] Found folder '${name}' with ID: ${foundId}`);
-            return foundId;
+            folderIdCache = response.result.files[0].id;
+            return folderIdCache;
         } else {
-            console.log(`[Drive] Folder '${name}' not found. Creating it...`);
-            const fileMetadata = { name: name, mimeType: 'application/vnd.google-apps.folder' };
-            const createResponse = await gapi.client.drive.files.create({ resource: fileMetadata, fields: 'id' });
-            const newId = createResponse.result.id;
-            console.log(`[Drive] Created folder '${name}' with ID: ${newId}`);
-            return newId;
+            const folderMetadata = {
+                name: OSINT_FOLDER,
+                mimeType: 'application/vnd.google-apps.folder'
+            };
+            const createResponse = await gapi.client.drive.files.create({
+                resource: folderMetadata,
+                fields: 'id'
+            });
+            folderIdCache = createResponse.result.id;
+            return folderIdCache;
         }
-    }
+    };
 
-    async function setupFolders() {
-        if (osintFolderId) {
-            console.log('[Drive] setupFolders: Already initialized.');
-            return;
-        }
-        console.log('[Drive] Setting up OSINT folder...');
-        osintFolderId = await findOrCreateFolder(OSINT_FOLDER_NAME);
-    }
-
-    async function getContacts() {
+    /**
+     * Fetches the contacts.json file from Google Drive.
+     * Returns an empty array if the file is not found.
+     */
+    const getContacts = async () => {
         try {
-            await setupFolders();
-            console.log(`[Drive] Searching for '${CONTACTS_FILE_NAME}' in folder ID: ${osintFolderId}`);
-            const query = `'${osintFolderId}' in parents and name='${CONTACTS_FILE_NAME}' and trashed=false`;
-            const response = await gapi.client.drive.files.list({ q: query, fields: 'files(id)' });
+            const parentFolderId = await findOrCreateFolder();
+            const query = `'${parentFolderId}' in parents and name='${CONTACTS_FILE}' and trashed=false`;
+            const response = await gapi.client.drive.files.list({
+                q: query,
+                fields: 'files(id)'
+            });
 
-            if (response.result.files && response.result.files.length > 0) {
-                contactsFileId = response.result.files[0].id;
-                console.log(`[Drive] Found '${CONTACTS_FILE_NAME}' with ID: ${contactsFileId}. Fetching content...`);
-                const fileContent = await gapi.client.drive.files.get({ fileId: contactsFileId, alt: 'media' });
-                console.log('[Drive] File content fetched. Attempting to parse JSON.');
-                const parsedData = fileContent.body ? JSON.parse(fileContent.body) : [];
-                console.log('[Drive] JSON parsed successfully. Returning data.');
-                return parsedData;
-            } else {
-                console.warn(`[Drive] '${CONTACTS_FILE_NAME}' not found. Returning empty array.`);
-                contactsFileId = null;
-                return [];
+            if (response.result.files.length === 0) {
+                return { data: [], error: null }; // No file exists yet, return empty array.
             }
+
+            const fileId = response.result.files[0].id;
+            const fileContentResponse = await gapi.client.drive.files.get({
+                fileId: fileId,
+                alt: 'media'
+            });
+
+            // Handle cases where the file might be empty
+            const data = fileContentResponse.body ? JSON.parse(fileContentResponse.body) : [];
+            return { data: data, error: null };
+
         } catch (error) {
-            console.error('[Drive] FATAL ERROR in getContacts:', error);
-            return [];
+            console.error("DRIVE ERROR (getContacts):", error);
+            return { data: [], error: error };
         }
-    }
+    };
 
-    async function saveContacts(contactsArray) {
+    /**
+     * Saves the contact list to contacts.json in Google Drive.
+     * This function now uses the robust FETCH API for uploads.
+     */
+    const saveContacts = async (contactsArray) => {
         try {
-            await setupFolders();
-            console.log('[Drive] saveContacts called. Preparing to save...');
-            const contactBlob = new Blob([JSON.stringify(contactsArray, null, 2)], { type: 'application/json' });
+            const parentFolderId = await findOrCreateFolder();
+            const content = JSON.stringify(contactsArray, null, 2);
 
-            if (contactsFileId) {
-                console.log(`[Drive] Updating existing file with ID: ${contactsFileId}`);
-                await gapi.client.request({
-                    path: `/upload/drive/v3/files/${contactsFileId}`,
+            // KEY CHANGE: We need the auth token to use fetch directly.
+            const token = gapi.client.getToken().access_token;
+            if (!token) {
+                throw new Error("Authentication token not found.");
+            }
+            const authHeader = `Bearer ${token}`;
+
+            // First, check if the file already exists.
+            const query = `'${parentFolderId}' in parents and name='${CONTACTS_FILE}' and trashed=false`;
+            const listResponse = await gapi.client.drive.files.list({ q: query, fields: 'files(id)' });
+            
+            let response;
+            if (listResponse.result.files.length > 0) {
+                // --- UPDATE (PATCH) an existing file ---
+                const fileId = listResponse.result.files[0].id;
+                const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`;
+                
+                response = await fetch(uploadUrl, {
                     method: 'PATCH',
-                    params: { uploadType: 'media' },
-                    body: contactBlob,
+                    headers: {
+                        'Authorization': authHeader,
+                        'Content-Type': 'application/json'
+                    },
+                    body: content
                 });
-                console.log(`[Drive] UPDATE successful.`);
-            } else {
-                console.log(`[Drive] Creating new file in folder ID: ${osintFolderId}`);
-                const fileMetadata = {
-                    'name': CONTACTS_FILE_NAME,
-                    'mimeType': 'application/json',
-                    'parents': [osintFolderId]
-                };
-                const form = new FormData();
-                form.append('metadata', new Blob([JSON.stringify(fileMetadata)], { type: 'application/json' }));
-                form.append('file', contactBlob);
 
-                const response = await gapi.client.request({
-                    path: 'https://www.googleapis.com/upload/drive/v3/files',
+            } else {
+                // --- CREATE a new file ---
+                const metadata = {
+                    name: CONTACTS_FILE,
+                    parents: [parentFolderId],
+                    mimeType: 'application/json'
+                };
+                
+                const form = new FormData();
+                form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+                form.append('file', new Blob([content], { type: 'application/json' }));
+
+                const createUrl = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+                
+                response = await fetch(createUrl, {
                     method: 'POST',
-                    params: { uploadType: 'multipart' },
+                    headers: {
+                        'Authorization': authHeader
+                    },
                     body: form
                 });
-                contactsFileId = response.result.id;
-                console.log(`[Drive] CREATE successful! New file ID: ${contactsFileId}`);
             }
-            return { success: true };
+
+            if (!response.ok) {
+                // If the fetch request itself failed, throw an error with the details.
+                const errorBody = await response.json();
+                console.error("Google Drive API Save Error:", errorBody);
+                throw new Error(`Failed to save file: ${errorBody.error.message}`);
+            }
+
+            return { success: true, error: null };
+
         } catch (error) {
-            console.error('[Drive] FATAL ERROR in saveContacts:', error);
+            // This will now catch both network errors and API errors.
+            console.error("DRIVE ERROR (saveContacts):", error);
             return { success: false, error: error };
         }
-    }
+    };
 
     return { getContacts, saveContacts };
 })();

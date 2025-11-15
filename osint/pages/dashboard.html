@@ -1,44 +1,24 @@
-<style>
-  .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; padding: 1.5rem; }
-  .widget { border: 1px solid rgba(0, 255, 0, 0.3); padding: 1rem; }
-  .widget-title { font-size: 1.2rem; text-shadow: 0 0 5px rgba(0, 255, 0, 0.7); border-bottom: 1px solid rgba(0, 255, 0, 0.3); padding-bottom: 0.5rem; margin: 0 0 1rem 0; }
-  .status-item { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
-  .actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-  .action-btn { display: block; background: transparent; border: 1px solid #00ff00; color: #00ff00 !important; padding: 1rem; font-size: 1.1rem; cursor: pointer; text-align: center; text-decoration: none; transition: all 0.2s ease; }
-  .action-btn:hover { background-color: rgba(0, 255, 0, 0.2); box-shadow: 0 0 8px #00ff00; }
-</style>
+<!-- osint/pages/dashboard.html -->
 <div class="dashboard-grid">
-  <div class="widget">
-    <h2 class="widget-title">System Status</h2>
-    <div class="widget-content" id="status-widget">
-        <div class="status-item">
-            <span>Core Status:</span><span class="value" style="color: #00ff00;">ONLINE</span>
-        </div>
-        <div class="status-item">
-            <span>Contacts Loaded:</span><span class="value" id="status-contacts-count">--</span>
-        </div>
+    <div class="widget">
+        <h2>Welcome to ContactOSINT</h2>
+        <p>This is a lightweight tool to manage contacts and their relationships, stored securely in your own Google Drive.</p>
+        <p>Use the navigation above to get started.</p>
     </div>
-  </div>
-  <div class="widget">
-      <h2 class="widget-title">Quick Actions</h2>
-      <div class="widget-content">
-          <div class="actions-grid">
-              <a href="#contact?new=true" class="action-btn">Add Contact</a>
-              <a href="#list" class="action-btn">View List</a>
-              <a href="#network" class="action-btn">Network Graph</a>
-              <a href="#bot" class="action-btn">OSINT Bot</a>
-              <a href="#console" class="action-btn">Debug Console</a>
-          </div>
-      </div>
-  </div>
+    <div class="widget">
+        <h2>Quick Stats</h2>
+        <p>Total Contacts: <span id="contact-count">--</span></p>
+    </div>
 </div>
+
 <script>
+    // <<< FIX: Wrap the script in an IIFE to prevent global variable conflicts.
     (function() {
         try {
-            const contacts = App.getContacts();
-            document.getElementById('status-contacts-count').textContent = contacts.length;
+            document.getElementById('contact-count').textContent = App.getContacts().length;
         } catch (e) {
-            document.getElementById('status-contacts-count').textContent = 'Error';
+            document.getElementById('contact-count').textContent = 'Error';
+            console.error("Dashboard error:", e);
         }
     })();
 </script>

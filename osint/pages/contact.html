@@ -1,108 +1,215 @@
+<!-- osint/pages/contact.html -->
+<div id="contact-container">
+    <!-- Content will be rendered here by the script -->
+</div>
+
 <style>
-    /* ... your existing styles ... */
-    .contact-container { padding: 1.5rem; max-width: 800px; margin: 0 auto; }
-    .form-group { margin-bottom: 1.5rem; }
-    .form-group label { display: block; margin-bottom: 0.5rem; opacity: 0.8; }
-    .form-group input, .form-group textarea {
-        width: 100%; box-sizing: border-box; background: #111;
-        border: 1px solid rgba(0, 255, 0, 0.3); color: #00ff00;
-        padding: 0.75rem; font-family: inherit; font-size: 1rem;
+    .contact-form .form-group {
+        margin-bottom: 1.5rem;
     }
-    .btn-bar { margin-top: 2rem; display: flex; gap: 1rem; }
-    .btn {
-        background: transparent; border: 1px solid #00ff00; color: #00ff00;
-        padding: 0.75rem 1.5rem; font-family: inherit; cursor: pointer;
-        text-decoration: none; display: inline-block;
+    .contact-form label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: bold;
+    }
+    .contact-form input,
+    .contact-form textarea,
+    .contact-form select {
+        width: 100%;
+        padding: 0.75rem;
+        box-sizing: border-box;
+        background-color: #3c3c3c;
+        border: 1px solid var(--border-color);
+        border-radius: 5px;
+        color: var(--text-color);
+        font-size: 1rem;
+    }
+    .contact-view-data {
+        background-color: var(--surface-color);
+        padding: 1rem;
+        border-radius: 5px;
+        white-space: pre-wrap;
+    }
+    .btn-bar {
+        margin-top: 1.5rem;
+        display: flex;
+        gap: 1rem;
+    }
+    .relations-section {
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--border-color);
+    }
+    .relation-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem;
+        background-color: var(--surface-color);
+        border-radius: 5px;
+        margin-bottom: 0.5rem;
+    }
+    .add-relation-form {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    .remove-relation-btn {
+        background-color: #c0392b;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 5px;
+        cursor: pointer;
     }
 </style>
 
-<div id="contact-root" class="contact-container">
-    <h1>Initializing Contact Page...</h1>
-</div>
-
-<!-- This indicator is for visual debugging -->
-<div id="script-status-indicator" style="position: fixed; bottom: 10px; left: 10px; background: red; color: white; padding: 5px; font-family: monospace;">
-    SCRIPT NOT STARTED
-</div>
-
 <script>
-    // THE DEFINITIVE FIX: Wait for the HTML to be ready before running any code.
-    document.addEventListener('DOMContentLoaded', function() {
-    
-        // The very first action is to provide visual feedback that the script is running.
-        document.getElementById('script-status-indicator').textContent = 'SCRIPT RUNNING';
-        document.getElementById('script-status-indicator').style.background = 'green';
+    (function() {
+        const container = document.getElementById('contact-container');
+        const hash = window.location.hash;
+        const queryString = hash.split('?')[1] || '';
+        const urlParams = new URLSearchParams(queryString);
+
+        const contactId = urlParams.get('id');
+        const isNew = urlParams.has('new');
+        const isEdit = urlParams.has('edit');
+
+        const allContacts = App.getContacts();
+        let contactData = null;
+
+        if (contactId) {
+            contactData = allContacts.find(c => c.id === contactId);
+        }
+
+        // --- RENDER LOGIC ---
+        if (isNew) {
+            renderForm({}); // New contact form
+        } else if (isEdit && contactData) {
+            renderForm(contactData); // Edit existing contact form
+        } else if (contactData) {
+            renderView(contactData); // View contact details
+        } else {
+            container.innerHTML = `<h2>Contact Not Found</h2><a href="#list" class="btn">Back to List</a>`;
+        }
         
-        const rootEl = document.getElementById('contact-root');
-        console.log('[Contact] DOMContentLoaded event fired. Script is now safely executing.');
-
-        try {
-            const allContacts = App.getContacts();
-            if (!Array.isArray(allContacts)) {
-                rootEl.innerHTML = '<h1>Error: Contact database is not loaded correctly.</h1>';
-                return;
-            }
-
-            const fullHash = window.location.hash || '';
-            const relevantHash = fullHash.substring(fullHash.lastIndexOf('#') + 1);
-            const isNew = relevantHash.includes('new=true');
-            const isEdit = relevantHash.includes('edit=true');
-            let contactId = null;
-
-            if (relevantHash.includes('id=')) {
-                contactId = relevantHash.split('id=')[1].split('&')[0];
-            }
-
-            if (isNew) {
-                renderEditForm({});
-            } else if (isEdit && contactId) {
-                const contactToEdit = allContacts.find(c => c.id === contactId);
-                renderEditForm(contactToEdit);
-            } else if (contactId) {
-                const contactToView = allContacts.find(c => c.id === contactId);
-                renderView(contactToView);
-            } else {
-                rootEl.innerHTML = '<h1>Error: Invalid Contact URL</h1><a href="#list" class="btn">Back to List</a>';
-            }
-
-        } catch (error) {
-            console.error('[Contact] A fatal error occurred during page logic:', error);
-            rootEl.innerHTML = `<h1>A fatal script error occurred. Check the developer console.</h1>`;
-        }
-
+        // --- VIEW / FORM RENDERING ---
         function renderView(contact) {
-            if (!contact) {
-                rootEl.innerHTML = '<h1>Error: Contact Not Found</h1><a href="#list" class="btn">Back to List</a>'; return;
+            let relationsHtml = '<p>No relationships defined.</p>';
+            if (contact.relations && contact.relations.length > 0) {
+                relationsHtml = contact.relations.map(rel => {
+                    const target = allContacts.find(c => c.id === rel.contactId);
+                    return `<div class="relation-item"><span>→ ${target ? target.firstName : 'Unknown'} (${rel.type})</span></div>`;
+                }).join('');
             }
-            rootEl.innerHTML = `<h1>${contact.firstName || ''} ${contact.lastName || ''}</h1><div class="view-group"><div class="view-label">Notes</div><div class="view-data">${contact.notes || 'N/A'}</div></div><div class="btn-bar"><a href="#contact?edit=true&id=${contact.id}" class="btn">Edit</a><a href="#list" class="btn">Back to List</a></div>`;
+
+            container.innerHTML = `
+                <h2>${contact.firstName || ''} ${contact.lastName || ''}</h2>
+                <h4>Notes</h4>
+                <div class="contact-view-data">${contact.notes || 'N/A'}</div>
+                <div class="relations-section">
+                    <h3>Relationships</h3>
+                    ${relationsHtml}
+                </div>
+                <div class="btn-bar">
+                    <a href="#contact?edit=true&id=${contact.id}" class="btn">Edit</a>
+                    <a href="#list" class="btn" style="background-color:#555;">Back to List</a>
+                </div>
+            `;
         }
 
-        function renderEditForm(contact) {
-            if (!contact) {
-                rootEl.innerHTML = '<h1>Error: Contact to edit was not found.</h1><a href="#list" class="btn">Back to List</a>'; return;
+        function renderForm(contact) {
+            // State for the form's relations
+            let currentRelations = contact.relations ? [...contact.relations] : [];
+            const otherContacts = allContacts.filter(c => c.id !== contact.id);
+
+            const selectOptions = otherContacts.map(c => `<option value="${c.id}">${c.firstName} ${c.lastName}</option>`).join('');
+
+            container.innerHTML = `
+                <h2>${contact.id ? 'Edit Contact' : 'Add New Contact'}</h2>
+                <form id="contactForm" class="contact-form">
+                    <!-- Standard Fields -->
+                    <div class="form-group"><label for="firstName">First Name</label><input type="text" id="firstName" value="${contact.firstName || ''}"></div>
+                    <div class="form-group"><label for="lastName">Last Name</label><input type="text" id="lastName" value="${contact.lastName || ''}"></div>
+                    <div class="form-group"><label for="notes">Notes</label><textarea id="notes" rows="6">${contact.notes || ''}</textarea></div>
+                    
+                    <!-- Relations Section -->
+                    <div class="relations-section">
+                        <h3>Relationships</h3>
+                        <div id="relations-list"></div>
+                        <h4>Add New Relationship</h4>
+                        <div class="add-relation-form">
+                            <select id="relation-contact-select" ${otherContacts.length === 0 ? 'disabled' : ''}>
+                                ${otherContacts.length > 0 ? selectOptions : '<option>No other contacts exist</option>'}
+                            </select>
+                            <input type="text" id="relation-type" placeholder="e.g., Friend, Colleague">
+                            <button type="button" id="add-relation-btn" class="btn">Add</button>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="btn-bar"><button type="submit" class="btn">Save</button><a href="#list" class="btn" style="background-color:#555;">Cancel</a></div>
+                </form>
+            `;
+
+            const relationsListEl = document.getElementById('relations-list');
+
+            function displayRelations() {
+                if (currentRelations.length === 0) {
+                    relationsListEl.innerHTML = '<p>No relationships defined.</p>';
+                    return;
+                }
+                relationsListEl.innerHTML = currentRelations.map(rel => {
+                    const target = allContacts.find(c => c.id === rel.contactId);
+                    return `
+                        <div class="relation-item">
+                            <span>→ ${target ? target.firstName : 'Unknown'} (${rel.type})</span>
+                            <button type="button" class="remove-relation-btn" data-id="${rel.contactId}">Remove</button>
+                        </div>`;
+                }).join('');
             }
-            const isEditing = !!contact.id;
-            rootEl.innerHTML = `<h1>${isEditing ? 'Edit Contact' : 'Add New Contact'}</h1><form id="contactForm"><div class="form-group"><label for="firstName">First Name</label><input type="text" id="firstName" name="firstName" value="${contact.firstName || ''}"></div><div class="form-group"><label for="lastName">Last Name</label><input type="text" id="lastName" name="lastName" value="${contact.lastName || ''}"></div><div class="form-group"><label for="notes">Notes</label><textarea id="notes" name="notes">${contact.notes || ''}</textarea></div><div class="btn-bar"><button type="submit" class="btn">Save Contact</button><a href="#list" class="btn">Cancel</a></div></form>`;
+
+            // Event Listeners for the form
+            document.getElementById('add-relation-btn').addEventListener('click', () => {
+                const selectEl = document.getElementById('relation-contact-select');
+                const typeEl = document.getElementById('relation-type');
+                if (!selectEl.value || !typeEl.value) {
+                    alert('Please select a contact and enter a relationship type.');
+                    return;
+                }
+                currentRelations.push({ contactId: selectEl.value, type: typeEl.value });
+                typeEl.value = '';
+                displayRelations();
+            });
+
+            relationsListEl.addEventListener('click', (e) => {
+                if (e.target.classList.contains('remove-relation-btn')) {
+                    const targetId = e.target.getAttribute('data-id');
+                    currentRelations = currentRelations.filter(r => r.contactId !== targetId);
+                    displayRelations();
+                }
+            });
+            
             document.getElementById('contactForm').addEventListener('submit', (e) => {
                 e.preventDefault();
-                handleSave(contact.id);
-            });
-        }
+                const savedData = {
+                    id: contact.id || 'C' + Date.now(),
+                    firstName: document.getElementById('firstName').value,
+                    lastName: document.getElementById('lastName').value,
+                    notes: document.getElementById('notes').value,
+                    relations: currentRelations
+                };
 
-        function handleSave(existingId) {
-            const currentContacts = App.getContacts();
-            const form = document.getElementById('contactForm');
-            const formData = new FormData(form);
-            const savedData = Object.fromEntries(formData.entries());
-            let updatedList;
-            if (existingId) {
-                savedData.id = existingId;
-                updatedList = currentContacts.map(c => c.id === existingId ? savedData : c);
-            } else {
-                savedData.id = 'C' + Date.now();
-                updatedList = [...currentContacts, savedData];
-            }
-            App.saveContacts(updatedList);
+                let updatedList;
+                if (contact.id) { // Editing existing
+                    updatedList = allContacts.map(c => c.id === contact.id ? savedData : c);
+                } else { // Creating new
+                    updatedList = [...allContacts, savedData];
+                }
+                App.saveContacts(updatedList);
+            });
+
+            displayRelations(); // Initial render of relations
         }
-    }); // End of the DOMContentLoaded listener
+    })();
 </script>

@@ -1,32 +1,69 @@
-<style>
-    .contact-list-container { padding: 1rem; max-width: 800px; margin: 0 auto; }
-    .contact-list-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0, 255, 0, 0.3); padding-bottom: 0.5rem; }
-    .contact-list-header h1 { margin: 0; text-shadow: 0 0 5px rgba(0, 255, 0, 0.7); }
-    .contact-item { display: block; padding: 0.75rem; border-bottom: 1px solid rgba(0, 255, 0, 0.2); text-decoration: none; color: #00ff00; transition: background-color 0.2s ease; }
-    .contact-item:hover { background-color: rgba(0, 255, 0, 0.15); }
-    .message { text-align: center; padding: 2rem; opacity: 0.7; }
-    .btn { background: transparent; border: 1px solid #00ff00; color: #00ff00; padding: 0.5rem 1rem; font-family: inherit; cursor: pointer; text-decoration: none; display: inline-block; }
-</style>
-<div class="contact-list-container">
-    <div class="contact-list-header">
-        <h1>Contact List</h1>
-        <a href="#contact?new=true" class="btn">Add Contact</a>
-    </div>
-    <div id="contactList"><div class="message">Loading...</div></div>
+<!-- osint/pages/list.html -->
+<div class="contact-list-header">
+    <h2>All Contacts</h2>
+    <a href="#contact?new=true" class="btn">Add New Contact</a>
 </div>
+
+<div id="contacts-container">
+    <!-- Contacts will be rendered here by the script -->
+</div>
+
+<style>
+    .contact-list-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    .contact-list-header h2 {
+        margin: 0;
+    }
+    .contact-item {
+        display: block;
+        padding: 1rem;
+        background-color: var(--surface-color);
+        margin-bottom: 0.5rem;
+        border-radius: 5px;
+        text-decoration: none;
+        color: var(--text-color);
+        transition: background-color 0.2s;
+    }
+    .contact-item:hover {
+        background-color: #3c3c3c;
+    }
+</style>
+
 <script>
+    // <<< FIX: Wrap the entire script in an IIFE to create a private scope.
     (function() {
-        const contactListEl = document.getElementById('contactList');
         const contacts = App.getContacts();
+        const container = document.getElementById('contacts-container');
+        
         if (!contacts || contacts.length === 0) {
-            contactListEl.innerHTML = '<div class="message">No contacts found.</div>';
-            return;
+            container.innerHTML = '<p>No contacts found. Click "Add New Contact" to get started.</p>';
+            return; // Exit the function early
         }
-        const sortedContacts = contacts.sort((a, b) => (a.firstName || '').localeCompare(b.firstName || ''));
-        const contactsHtml = sortedContacts.map(contact => {
-            const name = `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || '[No Name]';
-            return `<a href="#contact?id=${contact.id}" class="contact-item">${name}</a>`;
-        }).join('');
-        contactListEl.innerHTML = contactsHtml;
+
+        // Sort contacts alphabetically by first name for better organization
+        const sortedContacts = contacts.sort((a, b) => {
+            const nameA = (a.firstName || '').toLowerCase();
+            const nameB = (b.firstName || '').toLowerCase();
+            if (nameA < nameB) return -1;
+            if (nameA > nameB) return 1;
+            return 0;
+        });
+
+        sortedContacts.forEach(contact => {
+            const contactEl = document.createElement('a');
+            contactEl.href = `#contact?id=${contact.id}`;
+            contactEl.className = 'contact-item';
+            
+            const displayName = (contact.firstName || contact.lastName) 
+                ? `${contact.firstName || ''} ${contact.lastName || ''}`.trim() 
+                : '[Unnamed Contact]';
+                
+            contactEl.textContent = displayName;
+            container.appendChild(contactEl);
+        });
     })();
 </script>

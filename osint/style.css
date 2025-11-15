@@ -1,0 +1,106 @@
+:root {
+    --background-color: #1a1a1a;
+    --surface-color: #2c2c2c;
+    --primary-color: #00aaff;
+    --text-color: #e0e0e0;
+    --border-color: #444;
+}
+
+body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
+}
+
+#app-container {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Authentication Screen */
+#auth-view {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    text-align: center;
+}
+
+/* Main Application View */
+#main-view {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background-color: var(--surface-color);
+    border-bottom: 1px solid var(--border-color);
+}
+
+header nav {
+    display: flex;
+    gap: 1.5rem;
+}
+
+header nav a {
+    color: var(--text-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+#page-content {
+    flex-grow: 1;
+    padding: 2rem;
+    overflow-y: auto;
+}
+
+/* General Styles */
+.hidden {
+    display: none !important;
+}
+
+.btn {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+    text-transform: uppercase;
+    font-weight: bold;
+}
+
+.btn:hover {
+    opacity: 0.9;
+}
+
+/* Page Specific Styles */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+.widget {
+    background-color: var(--surface-color);
+    padding: 1.5rem;
+    border-radius: 8px;
+}
+
+.contact-list a {
+    display: block;
+    padding: 1rem;
+    background-color: var(--surface-color);
+    margin-bottom: 0.5rem;
+    border-radius: 5px;
+    text-decoration: none;
+    color: var(--text-color);
+}
