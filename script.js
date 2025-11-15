@@ -24,7 +24,7 @@ let isEditMode = false;
 
 /*
  * ====================================================================================
- * DOM ELEMENT REFERENCES
+ * DOM ELEMENT REFERENCES (CORRECTED)
  * ====================================================================================
  */
 const loginScreen = document.getElementById('login-screen');
@@ -32,7 +32,7 @@ const appContainer = document.getElementById('app-container');
 const authButton = document.getElementById('authorize-button');
 const signoutButton = document.getElementById('signout-button');
 const fileList = document.getElementById('file-list');
-const contentDisplay = document.getElementById('file-content-display');
+const contentDisplay = document.getElementById('page-content');
 const newFileButton = document.getElementById('new-file-button');
 const newFolderButton = document.getElementById('new-folder-button');
 const uploadButton = document.getElementById('upload-button');
@@ -44,12 +44,16 @@ const contentArea = document.getElementById('content-area');
 const fullscreenButton = document.getElementById('fullscreen-button');
 const toggleBotButton = document.getElementById('toggle-bot-button');
 const botCloseButton = document.getElementById('bot-close-button');
-// RENAMED: Editor buttons are now generic
 const editorToggleButton = document.getElementById('editor-toggle-button');
 const editorSaveButton = document.getElementById('editor-save-button');
 const fileNavigator = document.getElementById('file-navigator');
 const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
 const navCloseButton = document.getElementById('nav-close-button');
+
+// *** THIS IS THE CRITICAL FIX ***
+// The fileUploadInput element must be defined here along with the others.
+const fileUploadInput = document.getElementById('fileUploadInput');
+
 
 /*
  * ====================================================================================
@@ -61,6 +65,7 @@ signoutButton.onclick = handleSignoutClick;
 fileList.onclick = handleFileTreeClick;
 newFileButton.onclick = createNewFile;
 newFolderButton.onclick = createNewFolder;
+// Now 'fileUploadInput' is guaranteed to be defined before it's used here.
 uploadButton.onclick = () => fileUploadInput.click();
 fileUploadInput.onchange = uploadFile;
 focusButton.onclick = handleFocusClick;
@@ -117,6 +122,8 @@ async function validateToken() {
             await gapi.client.drive.about.get({ fields: 'user' });
             await handleApiKeys();
             navigateTo('root', 'Root');
+            Auth.notifyStatusChange(true);
+            App.init(); // <-- ADD THIS LINE HERE AS WELL
         } catch (err) { signOut(); }
     }
 }
@@ -129,6 +136,8 @@ async function handleTokenResponse(tokenResponse) {
     showAppUI();
     await handleApiKeys();
     navigateTo('root', 'Root');
+    Auth.notifyStatusChange(true);
+    App.init(); // <-- ADD THIS LINE to start the OSINT app
 }
 
 function handleSignoutClick() {
@@ -142,6 +151,8 @@ function signOut() {
     geminiApiKey = null;
     showLoginUI();
     fileList.innerHTML = '';
+
+    Auth.notifyStatusChange(false); // <-- ADD THIS LINE
 }
 
 function saveToken(token) { localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify(token)); }
@@ -209,7 +220,33 @@ function updateSelection(fileRow, file) {
 }
 
 // ... (handleFileTreeClick, toggleFolder, renderFileTree remain the same) ...
-function handleFileTreeClick(e) { const t = e.target.closest(".file-row"); if (t) { const n = t.parentElement, o = { ...n.dataset }; updateSelection(t, o); const s = e.target.closest("button"); s ? (e.stopPropagation(), s.classList.contains("rename-button") ? renameFile(o.id, o.name, n) : s.classList.contains("delete-button") ? deleteFileOrFolder(o.id, o.name, n) : s.classList.contains("download-button") && downloadFile(o)) : "application/vnd.google-apps.folder" === o.mimeType ? toggleFolder(n, o) : (openFile(o), window.innerWidth <= 768 && (fileNavigator.classList.remove("visible"), mobileMenuToggle.querySelector(".material-icons").textContent = "menu")) } } async function toggleFolder(e, t) { const n = e.dataset.loaded === "true", o = e.classList.contains("collapsed"), s = e.querySelector("ul"); s && (!n ? (e.dataset.loaded = "true", e.classList.remove("collapsed"), await renderFileTree(t.id, s), updateFolderIcon(e, !1)) : o ? (e.classList.remove("collapsed"), updateFolderIcon(e, !1)) : (e.classList.add("collapsed"), updateFolderIcon(e, !0))) } async function renderFileTree(parentId, parentElement) {
+function handleFileTreeClick(e) { const t = e.target.closest(".file-row"); if (t) { const n = t.parentElement, o = { ...n.dataset }; updateSelection(t, o); const s = e.target.closest("button"); s ? (e.stopPropagation(), s.classList.contains("rename-button") ? renameFile(o.id, o.name, n) : s.classList.contains("delete-button") ? deleteFileOrFolder(o.id, o.name, n) : s.classList.contains("download-button") && downloadFile(o)) : "application/vnd.google-apps.folder" === o.mimeType ? toggleFolder(n, o) : (openFile(o), window.innerWidth <= 768 && (fileNavigator.classList.remove("visible"), mobileMenuToggle.querySelector(".material-icons").textContent = "menu")) } }
+
+
+// In script.js - REPLACE the old toggleFolder function
+
+async function toggleFolder(listItem, fileData) {
+    const isLoaded = listItem.dataset.loaded === 'true';
+    const isCollapsed = listItem.classList.contains('collapsed');
+    const childList = listItem.querySelector('ul');
+
+    if (!childList) return; // Should not happen, but a good safeguard
+
+    // Case 1: First time clicking a folder. Load its content.
+    if (!isLoaded) {
+        listItem.dataset.loaded = 'true';
+        listItem.classList.remove('collapsed');
+        updateFolderIcon(listItem, false); // Set icon to "expanded"
+        await renderFileTree(fileData.id, childList);
+    }
+    // Case 2: Folder is already loaded. Toggle its collapsed state.
+    else {
+        listItem.classList.toggle('collapsed');
+        // Update the icon based on the new collapsed state
+        updateFolderIcon(listItem, listItem.classList.contains('collapsed'));
+    }
+}
+async function renderFileTree(parentId, parentElement) {
     // Start by clearing the target element and showing a loading state
     parentElement.innerHTML = `<li>Loading...</li>`;
     try {
@@ -286,7 +323,33 @@ function handleFileTreeClick(e) { const t = e.target.closest(".file-row"); if (t
 }
 
 // ... (UI Toggles & Modes remain the same) ...
-function handleFocusClick() { selectedFile && "application/vnd.google-apps.folder" === selectedFile.mimeType && enterFocusMode(selectedFile.id, selectedFile.name) } function enterFocusMode(e, t) { isFocusMode = !0, unfocusButton.classList.remove("hidden"), focusButton.classList.remove("active"), focusButton.title = "Focus on Selected Folder", currentPath = [{ id: e, name: t }], renderFileTree(e, fileList), renderPathBar() } function exitFocusMode() { isFocusMode = !1, unfocusButton.classList.add("hidden"), focusButton.classList.remove("active"), focusButton.title = "Focus on Selected Folder", currentPath = [{ id: "root", name: "Root" }], renderFileTree("root", fileList), renderPathBar() } function toggleFileNavigator() { fileNavigator.classList.toggle("visible"); const e = fileNavigator.classList.contains("visible"); mobileMenuToggle.querySelector(".material-icons").textContent = e ? "close" : "menu" } function toggleFullScreen() { contentArea.classList.toggle("fullscreen"); const e = contentArea.classList.contains("fullscreen"); fullscreenButton.querySelector(".material-icons").textContent = e ? "fullscreen_exit" : "fullscreen" } function toggleBot() { appContainer.classList.toggle("bot-collapsed"); const e = appContainer.classList.contains("bot-collapsed"); toggleBotButton.querySelector(".material-icons").textContent = e ? "chat_bubble_outline" : "chat" }
+function handleFocusClick() { selectedFile && "application/vnd.google-apps.folder" === selectedFile.mimeType && enterFocusMode(selectedFile.id, selectedFile.name) } function enterFocusMode(e, t) { isFocusMode = !0, unfocusButton.classList.remove("hidden"), focusButton.classList.remove("active"), focusButton.title = "Focus on Selected Folder", currentPath = [{ id: e, name: t }], renderFileTree(e, fileList), renderPathBar() } function exitFocusMode() { isFocusMode = !1, unfocusButton.classList.add("hidden"), focusButton.classList.remove("active"), focusButton.title = "Focus on Selected Folder", currentPath = [{ id: "root", name: "Root" }], renderFileTree("root", fileList), renderPathBar() } function toggleFileNavigator() { fileNavigator.classList.toggle("visible"); const e = fileNavigator.classList.contains("visible"); mobileMenuToggle.querySelector(".material-icons").textContent = e ? "close" : "menu" }
+
+
+// In script.js - REPLACE the old toggleFullScreen function
+
+function toggleFullScreen() {
+    // Check if we are currently in fullscreen mode
+    if (!document.fullscreenElement) {
+        // If not, request fullscreen on the content area
+        // We check for vendor prefixes for broader compatibility
+        if (contentArea.requestFullscreen) {
+            contentArea.requestFullscreen();
+        } else if (contentArea.webkitRequestFullscreen) { /* Safari */
+            contentArea.webkitRequestFullscreen();
+        } else if (contentArea.msRequestFullscreen) { /* IE11 */
+            contentArea.msRequestFullscreen();
+        }
+    } else {
+        // If we are in fullscreen, exit it
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        }
+    }
+}
+
+
+function toggleBot() { appContainer.classList.toggle("bot-collapsed"); const e = appContainer.classList.contains("bot-collapsed"); toggleBotButton.querySelector(".material-icons").textContent = e ? "chat_bubble_outline" : "chat" }
 
 
 // ... (filterFileTree, renameFile, deleteFileOrFolder, getIconForFile, updateFolderIcon remain the same) ...
@@ -334,51 +397,39 @@ function resetEditorState() {
     contentDisplay.classList.remove('iframe-active', 'flashcard-mode', 'editor-active');
 }
 
-// In script.js, modify the openFile function
-
-// In script.js, replace the entire openFile function with this one
+// In script.js - REPLACE the entire old openFile function with this
 
 function openFile(file) {
-    resetEditorState();
+    resetEditorState(); // This clears any previous editor state
 
     const mimeType = file.mimeType || '';
     const fileName = file.name || '';
 
-    // --- START of CHANGE ---
-    // Rule 1 (HIGHEST PRIORITY): Check for the specific .flashcards extension first.
+    // Rule 1: Flashcards (if you are using this feature)
     if (fileName.toLowerCase().endsWith('.flashcards')) {
         viewAsFlashcards(file);
     }
-    // --- END of CHANGE ---
-
-    // Rule 2: Check for other editable text files.
+    // Rule 2: Editable text files
     else if (isEditableTextFile(file)) {
         initializeTextEditor(file);
     }
-
-    // Rule 3: Check for all iframe-able file types (Google, Office, PDF).
+    // --- START OF CHANGE ---
+    // Rule 3 (NEW): All other viewable files (Images, Videos, PDFs, Docs, etc.)
+    // This single block now handles all file types that the Google previewer supports.
     else if (
-        mimeType === 'application/vnd.google-apps.document' ||
-        mimeType === 'application/vnd.google-apps.spreadsheet' ||
-        mimeType === 'application/vnd.google-apps.presentation' ||
+        mimeType.startsWith('image/') ||
+        mimeType.startsWith('video/') ||
         mimeType === 'application/pdf' ||
-        mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || // .docx
-        mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||       // .xlsx
-        mimeType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation'  // .pptx
+        mimeType.includes('google-apps') || // Catches Docs, Sheets, Slides
+        mimeType.includes('officedocument')  // Catches Word, Excel, PowerPoint
     ) {
-        viewAsDefault(file, 'iframe');
+        viewAsDefault(file); // No second argument is needed anymore
     }
+    // --- END OF CHANGE ---
 
-    // Rule 4: Handle standard media types.
-    else if (mimeType.startsWith('image/')) {
-        viewAsDefault(file, 'image');
-    } else if (mimeType.startsWith('video/')) {
-        viewAsDefault(file, 'video');
-    }
-
-    // Rule 5 (FALLBACK): If nothing else matches, open as a read-only text preview.
+    // Rule 4 (FALLBACK): If nothing else matches, try to show it as plain text
     else {
-        initializeTextEditor(file, true);
+        initializeTextEditor(file, true); // Open in read-only mode
     }
 }
 
@@ -391,43 +442,37 @@ async function fetchFileContent(file) {
     return res.body;
 }
 
-function viewAsDefault(file, type) {
-    const token = gapi.client.getToken()?.access_token;
-    if (!token) {
-        contentDisplay.innerHTML = `<h2>Error: Access token missing.</h2>`;
+// In script.js - REPLACE the entire old viewAsDefault function with this
+
+/**
+ * Displays any file that has a viewable link (images, videos, PDFs, Docs, etc.)
+ * using Google's own built-in previewer inside an iframe.
+ * @param {object} file - The file object from the Drive API.
+ */
+function viewAsDefault(file) {
+    contentDisplay.classList.add('iframe-active');
+
+    // First, check if a webViewLink even exists.
+    if (!file.webViewLink) {
+        contentDisplay.innerHTML = `<h2><span class="material-icons">error</span> Preview not available</h2><p>This file cannot be viewed on the web.</p>`;
         return;
     }
 
-    // --- START of CHANGE ---
-    // Handle all iframe previews (PDF, Docs, Sheets, Slides) with one block
-    if (type === 'iframe') {
-        contentDisplay.classList.add('iframe-active'); // Use a generic class
-        if (!file.webViewLink) {
-            contentDisplay.innerHTML = `<h2>Preview not available for this file.</h2>`;
-            return;
-        }
-        // The preview URL works for all Google Workspace files and PDFs
+    // --- THIS IS THE CRITICAL FIX ---
+    // We MUST use the embeddable '/preview' URL. The standard '/view' URL will be blocked by security policies.
+    // We check if the link is in the expected format before trying to modify it.
+    if (file.webViewLink.includes('/view')) {
         const previewUrl = file.webViewLink.replace('/view', '/preview');
         contentDisplay.innerHTML = `<iframe src="${previewUrl}" class="file-iframe"></iframe>`;
-        return;
+    } else {
+        // If the link is not a standard '/view' link, we cannot safely embed it.
+        // Show an error instead of a broken frame.
+        contentDisplay.innerHTML = `<h2><span class="material-icons">security</span> Preview Blocked</h2><p>This file has a link format that cannot be securely embedded.</p>`;
+        console.warn("Could not generate a preview link for:", file.webViewLink);
     }
-    // --- END of CHANGE ---
-
-    // This part for images and videos remains the same
-    if (!file.webContentLink) {
-        contentDisplay.innerHTML = `<h2>Preview not available.</h2>`;
-        return;
-    }
-    let url = file.webContentLink.replace('&export=download', '');
-    const authenticatedUrl = `${url}&access_token=${token}`;
-    let element = '';
-    if (type === 'image') {
-        element = `<img src="${authenticatedUrl}" alt="${file.name}">`;
-    } else if (type === 'video') {
-        element = `<video controls width="100%"><source src="${authenticatedUrl}" type="${file.mimeType}"></video>`;
-    }
-    contentDisplay.innerHTML = `<h2>${file.name}</h2>${element}`;
 }
+
+
 /**
  * Initializes the editor for any text-based file.
  * @param {object} file - The file object.
@@ -547,3 +592,17 @@ window.driveApi = {
 };
 
 initializeApp();
+
+
+// In script.js - ADD this new event listener
+
+// This listens for any change in fullscreen state (entering or exiting)
+document.addEventListener('fullscreenchange', () => {
+    const icon = fullscreenButton.querySelector('.material-icons');
+    // If there's an element in fullscreen, show the 'exit' icon, otherwise show the 'enter' icon.
+    if (document.fullscreenElement) {
+        icon.textContent = 'fullscreen_exit';
+    } else {
+        icon.textContent = 'fullscreen';
+    }
+});

@@ -3,7 +3,6 @@ const botContainer = document.getElementById('bot-container');
 const messagesContainer = document.getElementById('bot-messages');
 const input = document.getElementById('bot-input');
 const sendButton = document.getElementById('bot-send-button');
-const fileUploadInput = document.getElementById('bot-file-upload-input');
 
 // --- STATE ---
 let conversationHistory = [];

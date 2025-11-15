@@ -1,48 +1,67 @@
+/*
+ * ====================================================================================
+ * REFACTORED AUTH MODULE (Auth.js)
+ * This module acts as a simple interface to the main authentication
+ * logic contained in script.js. It does not perform any initialization itself.
+ * ====================================================================================
+ */
 const Auth = (() => {
-    const CLIENT_ID = '490934668566-dpcfvk9p5kfpk44ko8v1gl3d5i9f83qr.apps.googleusercontent.com'; // Replace with your Client ID
-    const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-    let tokenClient;
-    let authCallback;
+    let authChangeCallback = null;
 
+    /**
+     * Registers a callback function to run whenever the authentication status changes.
+     * @param {function(boolean): void} callback - The function to call. It receives `true` if signed in, `false` otherwise.
+     */
     const onAuthChange = (callback) => {
-        authCallback = callback;
+        authChangeCallback = callback;
     };
 
-    const init = () => {
-        gapi.load('client', async () => {
-            await gapi.client.init({
-                discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-            });
-        });
-
-        tokenClient = google.accounts.oauth2.initTokenClient({
-            client_id: CLIENT_ID,
-            scope: SCOPES,
-            callback: (tokenResponse) => {
-                if (tokenResponse.error) {
-                    console.error('Authentication error:', tokenResponse.error);
-                    authCallback(false);
-                } else {
-                    gapi.client.setToken(tokenResponse);
-                    authCallback(true);
-                }
-            },
-        });
-    };
-
+    /**
+     * Triggers the sign-in process by calling the global function from script.js.
+     */
     const signIn = () => {
-        tokenClient.requestAccessToken();
-    };
-
-    const signOut = () => {
-        const token = gapi.client.getToken();
-        if (token) {
-            google.accounts.oauth2.revoke(token.access_token, () => {
-                gapi.client.setToken('');
-                authCallback(false);
-            });
+        // This function must exist in the global scope of script.js
+        if (window.handleAuthClick) {
+            window.handleAuthClick();
+        } else {
+            console.error("Auth.signIn Error: global 'handleAuthClick' function not found.");
         }
     };
 
-    return { onAuthChange, init, signIn, signOut };
+    /**
+     * Triggers the sign-out process by calling the global function from script.js.
+     */
+    const signOut = () => {
+        // This function must exist in the global scope of script.js
+        if (window.handleSignoutClick) {
+            window.handleSignoutClick();
+        } else {
+            console.error("Auth.signOut Error: global 'handleSignoutClick' function not found.");
+        }
+    };
+
+    /**
+     * (For internal use by script.js)
+     * Notifies the registered callback about a change in authentication state.
+     * @param {boolean} isSignedIn - The new authentication status.
+     */
+    const notifyStatusChange = (isSignedIn) => {
+        if (authChangeCallback) {
+            authChangeCallback(isSignedIn);
+        }
+    };
+
+    // Expose the public methods
+    return {
+        onAuthChange,
+        signIn,
+        signOut,
+        // Expose this method so script.js can call it
+        notifyStatusChange
+    };
 })();
+
+// Make the functions from script.js globally available for the Auth module if they are not already.
+// This is generally not needed if script.js is loaded in the HTML before Auth.js
+window.handleAuthClick = handleAuthClick;
+window.handleSignoutClick = handleSignoutClick;

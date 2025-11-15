@@ -112,6 +112,13 @@ body {
     padding: 0;
 }
 
+/* In style.css */
+
+/* Add this rule to hide the children of a collapsed folder */
+.file-tree li.collapsed > ul {
+    display: none;
+}
+
 .file-tree ul {
     padding-left: 20px;
 }
@@ -190,12 +197,12 @@ body {
    Content Area & Viewers (EDITOR & TEXT FIX)
    ========================================================================== */
 #content-area {
-    flex-grow: 1;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-    position: relative;
-    min-width: 0;
+    /* This makes sure it takes up all available space next to the nav bar */
+    flex-grow: 1;
+    height: 100vh; /* Set height to 100% of the viewport height */
+    overflow: hidden; /* Prevent accidental scrollbars on the main area */
 }
 
 .content-header {
@@ -248,12 +255,15 @@ body {
 
 
 #file-content-display {
-    padding: 20px;
-    overflow-y: auto;
-    flex-grow: 1;
-    color: var(--text-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    padding: 0; /* Remove padding for edge-to-edge content */
+    background-color: #1a1a1a;
 }
-
 /* FIX: Style for the plain text viewer */
 #file-content-display pre {
     background-color: var(--surface-color);
@@ -331,19 +341,19 @@ body {
 #file-content-display.flashcard-mode {
     /* Take the container out of the normal document flow */
     position: absolute;
-    
+
     /* Pin it to the edges of its parent (#content-area) */
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    
+
     /* Override any default padding for a true full-screen experience */
     padding: 0 !important;
-    
+
     /* Ensure it appears on top of any other stray content */
     z-index: 50;
-    
+
     /* It must also be a flex container for its own content to work */
     display: flex;
 }
@@ -357,14 +367,19 @@ body {
     /* Force it to take up the full height of its parent */
 }
 
-#file-content-display.iframe-active {
-    padding: 0;
-    /* Remove padding for an edge-to-edge view */
-    overflow: hidden;
-    /* Prevent double scrollbars */
+#file-content-display {
+    flex-grow: 1; /* This tells the div to "grow" and take up the remaining space */
+    overflow: auto; /* Allow scrolling for text files, but not for iframes */
 }
 
-/* This rule for .file-iframe remains the same and is correct */
+.fullscreen-media {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* Scales the media to fit without cropping */
+    max-width: 100%;
+    max-height: 100%;
+}
+/* Optional: Ensure iframe previews also fill the space */
 .file-iframe {
     width: 100%;
     height: 100%;
@@ -405,4 +420,95 @@ body {
     #file-navigator.visible {
         transform: translateX(0);
     }
+}
+
+
+/* In style.css */
+.osint-nav {
+    padding: 10px 15px;
+    border-top: 1px solid #333;
+    border-bottom: 1px solid #333;
+}
+.osint-nav h4 {
+    margin: 0 0 10px;
+    font-size: 0.9em;
+    color: #888;
+    text-transform: uppercase;
+}
+.osint-nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.osint-nav ul a {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 8px 10px;
+    color: #ccc;
+    text-decoration: none;
+    border-radius: 4px;
+}
+.osint-nav ul a:hover {
+    background-color: #333;
+    color: #fff;
+}
+
+/* In style.css */
+
+/*
+ * =================================================================
+ * Main Application Layout & Fullscreen Viewer Fix
+ * =================================================================
+*/
+
+/*
+ * Step 1: Make the main app container a horizontal flexbox.
+ * This arranges the sidebar (#file-navigator) and the main content (#content-area) side-by-side.
+*/
+#app-container {
+    display: flex;
+    height: 100vh; /* Set height to 100% of the viewport height */
+    overflow: hidden; /* Prevent the entire page from having scrollbars */
+}
+
+/*
+ * Step 2: Make the main content area grow to fill the remaining space
+ * AND turn it into a *vertical* flexbox for its own children.
+*/
+#content-area {
+    flex-grow: 1; /* This is KEY: It tells the content area to take all available horizontal space. */
+    display: flex;
+    flex-direction: column; /* Stack its children (header and page-content) vertically. */
+    overflow: hidden; /* Prevent this container from scrolling. */
+}
+
+/*
+ * Step 3: Make the content container (your div) grow to fill the remaining vertical space.
+ * This is the other KEY part of the fix.
+*/
+#page-content {
+    flex-grow: 1; /* This tells the div to take all available vertical space below the header. */
+    overflow: auto; /* Allow scrolling for normal text files. */
+    height: 100vh; /* Set height to 100% of the viewport height */
+    
+}
+
+/*
+ * Step 4: When an iframe is active, remove padding and hide scrollbars.
+ * The iframe will provide its own scrollbars if the content inside needs it.
+*/
+#page-content.iframe-active {
+    padding: 0;
+    overflow: hidden;
+}
+
+/*
+ * Step 5: Ensure the iframe itself fills its now correctly-sized container.
+ * You likely already have this, but it's essential.
+*/
+.file-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
 }

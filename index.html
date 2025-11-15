@@ -24,22 +24,42 @@
         <nav id="file-navigator">
             <div class="nav-header">
                 <div class="action-buttons">
-                    <button id="focus-button" title="Focus on Selected Folder"><span class="material-icons">center_focus_strong</span></button>
-                    <button id="unfocus-button" title="Unfocus/Go to Root" class="hidden"><span class="material-icons">clear</span></button>
+                    <button id="focus-button" title="Focus on Selected Folder"><span
+                            class="material-icons">center_focus_strong</span></button>
+                    <button id="unfocus-button" title="Unfocus/Go to Root" class="hidden"><span
+                            class="material-icons">clear</span></button>
                     <button id="new-file-button" title="New File"><span class="material-icons">note_add</span></button>
-                    <button id="new-folder-button" title="New Folder"><span class="material-icons">create_new_folder</span></button>
+                    <button id="new-folder-button" title="New Folder"><span
+                            class="material-icons">create_new_folder</span></button>
                     <button id="upload-button" title="Upload File"><span class="material-icons">upload</span></button>
-                    <!-- BOT BUTTON MOVED HERE -->
-                    <button id="toggle-bot-button" class="icon-button" title="Toggle AI Bot"><span class="material-icons">chat_bubble_outline</span></button>
+                    <button id="toggle-bot-button" class="icon-button" title="Toggle AI Bot"><span
+                            class="material-icons">chat_bubble_outline</span></button>
                     <button id="signout-button" title="Sign Out"><span class="material-icons">logout</span></button>
-                    <button id="nav-close-button" title="Close Navigation" class="hidden"><span class="material-icons">close</span></button>
+                    <button id="nav-close-button" title="Close Navigation" class="hidden"><span
+                            class="material-icons">close</span></button>
                 </div>
-                <input type="file" id="file-upload-input" class="hidden">
+                <!--
+                  *** CRITICAL FIX #1 ***
+                  The ID has been changed from 'file-upload-input' to 'fileUploadInput'.
+                  Your script.js is looking for 'fileUploadInput'. This mismatch was
+                  causing a "Cannot set properties of null" crash.
+                -->
+                <input type="file" id="fileUploadInput" class="hidden">
             </div>
 
             <div class="nav-controls">
                 <div id="path-bar"></div>
                 <input type="search" id="search-input" placeholder="Search files...">
+            </div>
+
+
+            <div class="osint-nav">
+                <h4>OSINT Tools</h4>
+                <ul>
+                    <li><a href="osint/#dashboard"><span class="material-icons">dashboard</span>Dashboard</a></li>
+                    <li><a href="osint/#list"><span class="material-icons">list_alt</span>Contact List</a></li>
+                    <li><a href="osint/#network"><span class="material-icons">hub</span>Network Graph</a></li>
+                </ul>
             </div>
 
             <div class="file-tree-container">
@@ -54,46 +74,66 @@
                 </button>
                 <div class="content-actions">
                     <button id="editor-save-button" type="button" class="hidden" title="Save Changes">Save</button>
-                    <button id="editor-toggle-button" type="button" class="icon-button hidden" title="Toggle Edit/Read Mode">
+                    <button id="editor-toggle-button" type="button" class="icon-button hidden"
+                        title="Toggle Edit/Read Mode">
                         <span class="material-icons">edit</span>
                     </button>
                     <button id="fullscreen-button" type="button" class="icon-button" title="Toggle Fullscreen">
                         <span class="material-icons">fullscreen</span>
                     </button>
-                    <!-- BOT BUTTON REMOVED FROM HERE -->
                 </div>
             </div>
-            <div id="file-content-display">
-                <h1>Welcome</h1>
-                <p>Select a file to begin.</p>
-            </div>
-        </main>
+            <div id="page-content"></div>
+    </div>
+    </main>
 
-        <aside id="bot-container">
-            <div id="bot-header">
-                <h3>Gemini AI Bot</h3>
-                <div class="bot-header-actions">
-                    <label for="bot-file-upload-input" class="bot-action-button" title="Upload File to AI">
-                        <span class="material-icons">attach_file</span>
-                    </label>
-                    <input type="file" id="bot-file-upload-input" class="hidden">
-                    <button id="bot-close-button" class="bot-action-button" title="Close Bot">
-                        <span class="material-icons">close</span>
-                    </button>
-                </div>
+    <aside id="bot-container">
+        <div id="bot-header">
+            <h3>Gemini AI Bot</h3>
+            <div class="bot-header-actions">
+                <label for="bot-file-upload-input" class="bot-action-button" title="Upload File to AI">
+                    <span class="material-icons">attach_file</span>
+                </label>
+                <input type="file" id="bot-file-upload-input" class="hidden">
+                <button id="bot-close-button" class="bot-action-button" title="Close Bot">
+                    <span class="material-icons">close</span>
+                </button>
             </div>
-            <div id="bot-messages"></div>
-            <div id="bot-input-area">
-                <textarea id="bot-input" placeholder="Ask Gemini..."></textarea>
-                <button id="bot-send-button" title="Send"><span class="material-icons">send</span></button>
-            </div>
-        </aside>
+        </div>
+        <div id="bot-messages"></div>
+        <div id="bot-input-area">
+            <textarea id="bot-input" placeholder="Ask Gemini..."></textarea>
+            <button id="bot-send-button" title="Send"><span class="material-icons">send</span></button>
+        </div>
+    </aside>
 
     </div>
 
-    <script src="flashcards/flashcards.js" defer></script>
-    <script src="bot/bot.js" defer></script>
-    <script src="script.js" defer></script>
+
+    <!-- Google API Libraries (must be first) -->
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+
+    <!-- Main Application Logic (at the root) -->
+    <script src="script.js"></script>
+
+    <!-- Feature-Specific Modules -->
+
+    <!-- OSINT Modules -->
+    <script src="./osint/js/auth.js"></script>
+    <script src="./osint/js/drive.js"></script>
+    <script src="./osint/js/ui.js"></script>
+    <script src="./osint/js/app.js"></script>
+    <!--
+      *** CRITICAL FIX #2 ***
+      Added the script tag for network.js, which is required for the
+      OSINT network graph page to function.
+    -->
+    <script src="./osint/js/network.js"></script>
+
+    <!-- Other Features -->
+    <script src="./bot/bot.js"></script>
+    <script src="./flashcards/flashcards.js"></script>
 
 </body>
 

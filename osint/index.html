@@ -2,38 +2,46 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ContactOSINT</title>
-    <link rel="stylesheet" href="style.css">
+    <title>ContactOSINT - Login</title>
+    <link rel="stylesheet" href="./osint/style.css">
+    <style>
+        /* Simple styling for the login button container */
+        .login-box {
+            background-color: var(--surface-color);
+            padding: 3rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .login-box h1 {
+            margin-top: 0;
+            margin-bottom: 2rem;
+        }
+    </style>
 </head>
 <body>
-    <div id="app-container">
-        <div id="auth-view">
-            <div class="center-content">
-                <h1>ContactOSINT</h1>
-                <p>A simple tool to manage contacts using your Google Drive.</p>
-                <button id="signInButton" class="btn">Sign In with Google</button>
-            </div>
-        </div>
 
-        <div id="main-view" class="hidden">
-            <header>
-                <nav>
-                    <a href="#dashboard">Dashboard</a>
-                    <a href="#list">Contact List</a>
-                    <a href="#network">Network Graph</a>
-                </nav>
-                <button id="signOutButton" class="btn">Sign Out</button>
-            </header>
-            <main id="page-content"></main>
+    <div id="login-screen">
+        <div class="login-box widget">
+            <h1>ContactOSINT</h1>
+            <p>Please sign in with your Google Account to continue.</p>
+            <br>
+            <button id="auth-button" class="btn">Sign In with Google</button>
         </div>
     </div>
 
-    <script src="https://apis.google.com/js/api.js"></script>
-    <script src="https://accounts.google.com/gsi/client"></script>
-    <script src="./js/auth.js"></script>
-    <script src="./js/drive.js"></script>
-    <script src="./js/ui.js"></script>
-    <script src="./js/app.js"></script>
+    <!-- Load the new central auth script -->
+    <script src="script.js"></script>
+    
+    <!-- Load Google Libraries -->
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+
+    <script>
+        // Attach event listener once the DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('auth-button').addEventListener('click', handleAuthClick);
+        });
+    </script>
+
 </body>
 </html>

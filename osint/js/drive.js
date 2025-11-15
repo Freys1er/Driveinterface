@@ -1,144 +1,101 @@
 // osint/js/drive.js
 
 const Drive = (() => {
-    const OSINT_FOLDER = 'OSINT_Contacts';
-    const CONTACTS_FILE = 'contacts.json';
-    let folderIdCache = null; // Use a simple cache to avoid repeated folder lookups
+    const OSINT_FOLDER_NAME = 'OSINT_Contacts'; // *** CORRECTED FOLDER NAME ***
+    const CONTACTS_FILE_NAME = 'contacts.json';
+    let folderId = null;
+    let fileId = null;
 
-    /**
-     * Finds the app's folder, creating it if it doesn't exist.
-     * Caches the result for the session.
-     */
     const findOrCreateFolder = async () => {
-        if (folderIdCache) return folderIdCache;
-
-        const query = `mimeType='application/vnd.google-apps.folder' and name='${OSINT_FOLDER}' and trashed=false`;
-        const response = await gapi.client.drive.files.list({
-            q: query,
-            fields: 'files(id)'
-        });
-
-        if (response.result.files && response.result.files.length > 0) {
-            folderIdCache = response.result.files[0].id;
-            return folderIdCache;
-        } else {
-            const folderMetadata = {
-                name: OSINT_FOLDER,
-                mimeType: 'application/vnd.google-apps.folder'
-            };
+        if (folderId) return folderId;
+        try {
+            const listResponse = await gapi.client.drive.files.list({
+                q: `name='${OSINT_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and 'root' in parents and trashed=false`,
+                fields: 'files(id)',
+                spaces: 'drive'
+            });
+            const files = listResponse?.result?.files || [];
+            if (files.length > 0) {
+                folderId = files[0].id;
+                return folderId;
+            }
+            // If the user's folder doesn't exist, we create it.
             const createResponse = await gapi.client.drive.files.create({
-                resource: folderMetadata,
+                resource: { name: OSINT_FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder', parents: ['root'] },
                 fields: 'id'
             });
-            folderIdCache = createResponse.result.id;
-            return folderIdCache;
+            folderId = createResponse.result.id;
+            return folderId;
+        } catch (error) {
+            console.error("DRIVE ERROR (findOrCreateFolder):", error);
+            return null;
         }
     };
 
-    /**
-     * Fetches the contacts.json file from Google Drive.
-     * Returns an empty array if the file is not found.
-     */
     const getContacts = async () => {
         try {
             const parentFolderId = await findOrCreateFolder();
-            const query = `'${parentFolderId}' in parents and name='${CONTACTS_FILE}' and trashed=false`;
-            const response = await gapi.client.drive.files.list({
-                q: query,
+            if (!parentFolderId) throw new Error("Could not find or create the OSINT data folder.");
+
+            const listResponse = await gapi.client.drive.files.list({
+                q: `name='${CONTACTS_FILE_NAME}' and '${parentFolderId}' in parents and trashed=false`,
                 fields: 'files(id)'
             });
-
-            if (response.result.files.length === 0) {
-                return { data: [], error: null }; // No file exists yet, return empty array.
+            const files = listResponse?.result?.files || [];
+            if (files.length === 0) {
+                // This means the OSINT_Contacts folder exists, but the contacts.json file does not.
+                return { data: [], error: null }; 
             }
-
-            const fileId = response.result.files[0].id;
-            const fileContentResponse = await gapi.client.drive.files.get({
-                fileId: fileId,
-                alt: 'media'
-            });
-
-            // Handle cases where the file might be empty
-            const data = fileContentResponse.body ? JSON.parse(fileContentResponse.body) : [];
-            return { data: data, error: null };
-
+            fileId = files[0].id;
+            const fileContentResponse = await gapi.client.drive.files.get({ fileId: fileId, alt: 'media' });
+            const contacts = fileContentResponse.result || [];
+            return { data: Array.isArray(contacts) ? contacts : [], error: null };
         } catch (error) {
             console.error("DRIVE ERROR (getContacts):", error);
-            return { data: [], error: error };
+            return { data: null, error };
         }
     };
 
-    /**
-     * Saves the contact list to contacts.json in Google Drive.
-     * This function now uses the robust FETCH API for uploads.
-     */
-    const saveContacts = async (contactsArray) => {
+    const saveContacts = async (contacts) => {
         try {
             const parentFolderId = await findOrCreateFolder();
-            const content = JSON.stringify(contactsArray, null, 2);
+            if (!parentFolderId) throw new Error("Could not find or create the OSINT data folder.");
 
-            // KEY CHANGE: We need the auth token to use fetch directly.
-            const token = gapi.client.getToken().access_token;
-            if (!token) {
-                throw new Error("Authentication token not found.");
-            }
-            const authHeader = `Bearer ${token}`;
+            const boundary = '-------314159265358979323846';
+            const delimiter = "\r\n--" + boundary + "\r\n";
+            const close_delim = "\r\n--" + boundary + "--";
+            const metadata = { name: CONTACTS_FILE_NAME, mimeType: 'application/json' };
+            const multipartRequestBody =
+                delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
+                delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(contacts, null, 2) +
+                close_delim;
 
-            // First, check if the file already exists.
-            const query = `'${parentFolderId}' in parents and name='${CONTACTS_FILE}' and trashed=false`;
-            const listResponse = await gapi.client.drive.files.list({ q: query, fields: 'files(id)' });
-            
-            let response;
-            if (listResponse.result.files.length > 0) {
-                // --- UPDATE (PATCH) an existing file ---
-                const fileId = listResponse.result.files[0].id;
-                const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`;
-                
-                response = await fetch(uploadUrl, {
+            let request;
+            if (fileId) { // If file exists, update it
+                request = gapi.client.request({
+                    path: `/upload/drive/v3/files/${fileId}`,
                     method: 'PATCH',
-                    headers: {
-                        'Authorization': authHeader,
-                        'Content-Type': 'application/json'
-                    },
-                    body: content
+                    params: { uploadType: 'multipart' },
+                    headers: { 'Content-Type': 'multipart/related; boundary="' + boundary + '"' },
+                    body: multipartRequestBody
                 });
-
-            } else {
-                // --- CREATE a new file ---
-                const metadata = {
-                    name: CONTACTS_FILE,
-                    parents: [parentFolderId],
-                    mimeType: 'application/json'
-                };
-                
-                const form = new FormData();
-                form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-                form.append('file', new Blob([content], { type: 'application/json' }));
-
-                const createUrl = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
-                
-                response = await fetch(createUrl, {
+            } else { // Otherwise, create it inside the folder
+                metadata.parents = [parentFolderId];
+                request = gapi.client.request({
+                    path: '/upload/drive/v3/files',
                     method: 'POST',
-                    headers: {
-                        'Authorization': authHeader
-                    },
-                    body: form
+                    params: { uploadType: 'multipart' },
+                    headers: { 'Content-Type': 'multipart/related; boundary="' + boundary + '"' },
+                    body: multipartRequestBody
                 });
             }
-
-            if (!response.ok) {
-                // If the fetch request itself failed, throw an error with the details.
-                const errorBody = await response.json();
-                console.error("Google Drive API Save Error:", errorBody);
-                throw new Error(`Failed to save file: ${errorBody.error.message}`);
-            }
-
+            
+            await request;
             return { success: true, error: null };
 
         } catch (error) {
-            // This will now catch both network errors and API errors.
             console.error("DRIVE ERROR (saveContacts):", error);
-            return { success: false, error: error };
+            return { success: false, error };
         }
     };
 

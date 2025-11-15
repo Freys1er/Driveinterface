@@ -1,506 +1,117 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Interactive Contact Network</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Graph - ContactOSINT</title>
+    <link rel="stylesheet" href="../style.css">
     <style>
-        body,
-        html {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background-color: #000;
-            font-family: "Courier New", Courier, monospace;
+        /* Styles specific to the network page */
+        #page-content {
+            padding: 0; /* Remove padding for full-screen canvas */
+            height: calc(100vh - 61px); /* Full height minus header */
+            position: relative;
         }
-
-        #network-canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            cursor: grab;
+        #network-container { position: relative; width: 100%; height: 100%; overflow: hidden; }
+        #network-canvas { display: block; width: 100%; height: 100%; cursor: grab; background-color: #000; }
+        #network-canvas.grabbing { cursor: grabbing; }
+        #ui-controls { 
+            position: absolute; 
+            bottom: 10px; 
+            right: 10px; 
+            background-color: rgba(0,0,0,0.7); 
+            padding: 10px; 
+            border-radius: 5px; 
+            border: 1px solid #0f0; 
+            color: #0f0; 
+            display: none; /* Hidden by default, shown by script */
+            gap: 10px; 
+            align-items: center; 
+            z-index: 1000; 
         }
-
-        #network-canvas.grabbing {
-            cursor: grabbing;
-        }
-
-        #ui-controls {
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-            background-color: rgba(0, 0, 0, 0.7);
-            padding: 10px;
-            border-radius: 5px;
-            border: 1px solid #0f0;
-            color: #0f0;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            z-index: 1000;
-            /* Ensures buttons are on top */
-        }
-
-        #ui-controls button,
-        #ui-controls input {
-            background-color: #222;
-            color: #0f0;
-            border: 1px solid #0f0;
-            padding: 5px 10px;
-            font-family: inherit;
-            cursor: pointer;
-        }
-
-        #ui-controls input {
-            width: 80px;
-        }
-
-        #ui-controls button:hover {
-            background-color: #0f0;
-            color: #000;
-        }
-
-        /* Find this existing rule */
-        #main-view {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            z-index: 2000;
-
-            /* ADD THIS LINE 👇 */
-            pointer-events: none;
-            /* Let clicks and touches pass through this container to the canvas below */
-        }
-
-        /* Find this existing rule */
-        #main-view header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background-color: rgba(0, 0, 0, 0.7);
-            padding: 10px 20px;
-            border-bottom: 1px solid #0f0;
-            color: #0f0;
-            box-sizing: border-box;
-
-            /* ADD THIS LINE 👇 */
-            pointer-events: auto;
-            /* BUT, make the header itself clickable again */
-        }
-
-        #main-view nav a {
-            color: #0f0;
-            text-decoration: none;
-            margin-right: 20px;
-            font-weight: bold;
-        }
-
-        #main-view nav a:hover {
-            text-decoration: underline;
-        }
-
-        /* You can create a shared class for buttons if you like */
-        .btn {
-            background-color: #222;
-            color: #0f0;
-            border: 1px solid #0f0;
-            padding: 5px 10px;
-            font-family: inherit;
-            cursor: pointer;
-        }
-
-        .btn:hover {
-            background-color: #0f0;
-            color: #000;
-        }
+        #ui-controls button, #ui-controls input { background-color: #222; color: #0f0; border: 1px solid #0f0; padding: 5px 10px; font-family: "Courier New", Courier, monospace; cursor: pointer; }
+        #ui-controls input { width: 80px; }
+        #ui-controls button:hover { background-color: #0f0; color: #000; }
     </style>
 </head>
-
 <body>
 
-
-    <div id="main-view">
+    <div id="app-container">
         <header>
             <nav>
-                <a href="#dashboard">Dashboard</a>
-                <a href="#list">Contact List</a>
-                <a href="#network">Network Graph</a>
+                <a href="./dashboard.html">Dashboard</a>
+                <a href="./list.html">Contacts</a>
+                <a href="./network.html">Network</a>
             </nav>
-            <button id="signOutButton" class="btn">Sign Out</button>
+            <button id="signout-button" class="btn">Sign Out</button>
         </header>
-        <main id="page-content"></main>
+
+        <main id="page-content">
+             <div id="network-container">
+                <canvas id="network-canvas"></canvas>
+                <div id="ui-controls">
+                    <button id="add-button">Add</button>
+                    <button id="pause-button">Pause</button>
+                    <input type="text" id="find-input" placeholder="Initials..">
+                    <button id="find-button">Find</button>
+                </div>
+            </div>
+        </main>
     </div>
 
-    <div id="ui-controls">
-        <button id="add-button">Add</button>
-        <button id="pause-button">Pause</button>
-        <input type="text" id="find-input" placeholder="Initials..">
-        <button id="find-button">Find</button>
-    </div>
+    <!-- Load all necessary scripts -->
+    <script src="../js/drive.js"></script>
+    <script src="../js/app.js"></script>
+    <script src="../js/network.js"></script>
 
-    <canvas id="network-canvas"></canvas>
-
+    <!-- ===== ROBUST SCRIPT BLOCK ===== -->
     <script>
-        // --- MOCK DATA ---
-        window.App = window.App || {
-            getContacts: () => {
-                return [
-                    { id: 'C1763134496785', firstName: 'Alice', lastName: 'Adams', relations: '[{"contactId":"C2"},{"contactId":"C3"}]' },
-                    { id: 'C2', firstName: 'Bob', lastName: 'Brown', relations: '[{"contactId":"C1"},{"contactId":"C4"}]' },
-                    { id: 'C3', firstName: 'Charlie', lastName: 'Clark', relations: '[{"contactId":"C1"},{"contactId":"C5"}]' },
-                    { id: 'C4', firstName: 'Diana', lastName: 'Davis', relations: '[{"contactId":"C2"}]' },
-                    { id: 'C5', firstName: 'Eve', lastName: 'Evans', relations: '[{"contactId":"C6"}]' },
-                    { id: 'C6', firstName: 'Frank', lastName: 'Foster', relations: '[{"contactId":"C5"},{"contactId":"C1"}]' },
-                ];
-            }
-        };
-
-
-        (function () {
-            const canvas = document.getElementById('network-canvas');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-
-            // --- UI Elements ---
-            const pauseButton = document.getElementById('pause-button');
-            const findInput = document.getElementById('find-input');
-            const findButton = document.getElementById('find-button');
-            const addButton = document.getElementById('add-button');
-
-            // --- DATA PREPARATION ---
+        document.getElementById('signout-button').addEventListener('click', () => {
+            localStorage.removeItem(App.TOKEN_STORAGE_KEY);
+            window.location.href = '/';
+        });
+        
+        /**
+         * Page-specific logic: Get contacts and initialize the graph.
+         */
+        function runPageLogic() {
             const contacts = App.getContacts();
-            const nodes = [];
-            const edges = [];
+            const container = document.getElementById('network-container');
+            // Call the function from network.js with the REAL contacts
+            initializeNetworkGraph(container, contacts);
+        }
 
-            contacts.forEach(contact => {
-                nodes.push({
-                    id: contact.id,
-                    label: `${(contact.firstName || '').charAt(0)}${(contact.lastName || '').charAt(0)}`.toUpperCase(),
-                    x: (Math.random() - 0.5) * 500, y: (Math.random() - 0.5) * 500,
-                    vx: 0, vy: 0,
-                    isLocked: false,
-                    highlightUntil: 0
+        async function initializeAndRun() {
+            try {
+                await gapi.client.init({
+                    discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
                 });
-
-                let relations = [];
-                if (contact.relations) {
-                    if (typeof contact.relations === 'string' && contact.relations.trim() !== '') {
-                        try { relations = JSON.parse(contact.relations); } catch (e) { console.error(`Parse error for ${contact.id}:`, e); }
-                    } else if (typeof contact.relations === 'object') { relations = contact.relations; }
+                const isAuthenticated = await App.initializeAndAuth();
+                if (isAuthenticated) {
+                    await App.loadContacts(); // IMPORTANT: Load contacts first!
+                    runPageLogic();
                 }
-                if (Array.isArray(relations)) {
-                    relations.forEach(rel => {
-                        if (rel && rel.contactId && contacts.some(c => c.id === rel.contactId)) {
-                            edges.push({ source: contact.id, target: rel.contactId });
-                        }
-                    });
-                }
+            } catch (error) {
+                console.error("Initialization Error:", error);
+                document.getElementById('page-content').innerHTML = `<h1>Error</h1><p>Could not initialize the application.</p>`;
+            }
+        }
+        
+        function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.async = true;
+                script.defer = true;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
             });
+        }
 
-            // --- STATE & CONSTANTS ---
-            let isPaused = false;
-            let draggedNode = null;
-            let isPanning = false;
-            let wasDragged = false;
-            let lastPanPoint = { x: 0, y: 0 };
-            let clickTimeout = null;
-
-            let scale = 1.0;
-            let viewOffset = { x: 0, y: 0 };
-            let targetOffset = { x: 0, y: 0 };
-
-            const DOUBLE_CLICK_THRESHOLD = 300;
-            const NODE_RADIUS = 20;
-            const GRID_SIZE = 50;
-
-            // --- COORDINATE CONVERSION ---
-            function screenToWorld(x, y) {
-                const centerX = canvas.width / 2;
-                const centerY = canvas.height / 2;
-                return {
-                    x: (x - centerX - viewOffset.x) / scale,
-                    y: (y - centerY - viewOffset.y) / scale
-                };
-            }
-
-            // --- INTERACTION HANDLERS ---
-            function handleInteractionStart(e) {
-                if (e.target !== canvas) return;
-                if (e.type === 'touchstart') e.preventDefault();
-                wasDragged = false;
-                const clientX = e.clientX || e.touches[0].clientX;
-                const clientY = e.clientY || e.touches[0].clientY;
-
-                const pos = screenToWorld(clientX, clientY);
-                for (const node of nodes) {
-                    const dx = node.x - pos.x;
-                    const dy = node.y - pos.y;
-                    if (dx * dx + dy * dy < (NODE_RADIUS * NODE_RADIUS)) {
-                        draggedNode = node;
-                        return;
-                    }
-                }
-                isPanning = true;
-                lastPanPoint = { x: clientX, y: clientY };
-                canvas.classList.add('grabbing');
-            }
-
-            function handleInteractionMove(e) {
-                if (!draggedNode && !isPanning) return;
-                if (e.type === 'touchmove') e.preventDefault();
-                wasDragged = true;
-
-                const clientX = e.clientX || e.touches[0].clientX;
-                const clientY = e.clientY || e.touches[0].clientY;
-
-                if (draggedNode) {
-                    const pos = screenToWorld(clientX, clientY);
-                    draggedNode.x = pos.x;
-                    draggedNode.y = pos.y;
-                } else if (isPanning) {
-                    const dx = clientX - lastPanPoint.x;
-                    const dy = clientY - lastPanPoint.y;
-                    viewOffset.x += dx; viewOffset.y += dy;
-                    targetOffset.x = viewOffset.x; targetOffset.y = viewOffset.y;
-                    lastPanPoint = { x: clientX, y: clientY };
-                }
-            }
-
-            function handleInteractionEnd() {
-                if (draggedNode && !wasDragged) {
-                    if (clickTimeout) {
-                        clearTimeout(clickTimeout);
-                        clickTimeout = null;
-                        const url = `http://127.0.0.1:5500/osint/#contact?id=${draggedNode.id}`;
-                        window.open(url, '_blank');
-                    } else {
-                        clickTimeout = setTimeout(() => {
-                            draggedNode.isLocked = !draggedNode.isLocked;
-                            // NEW: Snap to grid when locking
-                            if (draggedNode.isLocked) {
-                                draggedNode.x = Math.round(draggedNode.x / GRID_SIZE) * GRID_SIZE;
-                                draggedNode.y = Math.round(draggedNode.y / GRID_SIZE) * GRID_SIZE;
-                            }
-                            clickTimeout = null;
-                        }, DOUBLE_CLICK_THRESHOLD);
-                    }
-                }
-                draggedNode = null;
-                isPanning = false;
-                canvas.classList.remove('grabbing');
-            }
-
-            function handleWheel(e) {
-                e.preventDefault();
-                const zoomFactor = 1.1; const oldScale = scale;
-                scale *= e.deltaY > 0 ? 1 / zoomFactor : zoomFactor;
-                scale = Math.max(0.1, Math.min(scale, 10));
-                const mouseX = e.clientX - canvas.width / 2; const mouseY = e.clientY - canvas.height / 2;
-                viewOffset.x = mouseX - (mouseX - viewOffset.x) * (scale / oldScale);
-                viewOffset.y = mouseY - (mouseY - viewOffset.y) * (scale / oldScale);
-                targetOffset = { ...viewOffset };
-            }
-
-            // --- UI BUTTONS ---
-            pauseButton.addEventListener('click', () => { isPaused = !isPaused; pauseButton.textContent = isPaused ? 'Play' : 'Pause'; });
-            findButton.addEventListener('click', findNode);
-            findInput.addEventListener('keydown', (e) => e.key === 'Enter' && findNode());
-            addButton.addEventListener('click', addNewNode);
-
-            function findNode() {
-                const query = findInput.value.trim().toUpperCase(); if (!query) return;
-                const foundNode = nodes.find(n => n.label.toUpperCase() === query);
-                if (foundNode) {
-                    targetOffset.x = -foundNode.x * scale; targetOffset.y = -foundNode.y * scale;
-                    foundNode.highlightUntil = Date.now() + 2000;
-                } else { alert('Node not found.'); }
-            }
-
-            function addNewNode() {
-                const firstName = prompt("Enter new contact's first name:"); if (!firstName) return;
-                const lastName = prompt("Enter new contact's last name:"); if (!lastName) return;
-                const centerPos = screenToWorld(canvas.width / 2, canvas.height / 2);
-                const newNode = {
-                    id: 'N' + Date.now(),
-                    label: `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase(),
-                    x: centerPos.x, y: centerPos.y, vx: 0, vy: 0,
-                    isLocked: false, highlightUntil: Date.now() + 2000
-                };
-                nodes.push(newNode);
-            }
-
-            // --- ATTACH LISTENERS ---
-            canvas.addEventListener('mousedown', handleInteractionStart);
-            canvas.addEventListener('mousemove', handleInteractionMove);
-            window.addEventListener('mouseup', handleInteractionEnd);
-            canvas.addEventListener('touchstart', handleInteractionStart, { passive: false });
-            canvas.addEventListener('touchmove', handleInteractionMove, { passive: false });
-            window.addEventListener('touchend', handleInteractionEnd);
-            canvas.addEventListener('wheel', handleWheel, { passive: false });
-            window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
-
-            // --- CORE PHYSICS & RENDER LOOP ---
-            function update() {
-                viewOffset.x += (targetOffset.x - viewOffset.x) * 0.1;
-                viewOffset.y += (targetOffset.y - viewOffset.y) * 0.1;
-
-                if (isPaused) return;
-
-                // FIXED: Robust physics engine
-                const forces = new Map(nodes.map(n => [n.id, { fx: 0, fy: 0 }]));
-
-                // 1. Calculate all forces
-                // Repulsion forces
-                for (let i = 0; i < nodes.length; i++) {
-                    for (let j = i + 1; j < nodes.length; j++) {
-                        const nodeA = nodes[i];
-                        const nodeB = nodes[j];
-                        const dx = nodeB.x - nodeA.x;
-                        const dy = nodeB.y - nodeA.y;
-                        let distSq = dx * dx + dy * dy;
-                        if (distSq < 1) distSq = 1;
-                        const force = -8000 / distSq;
-                        const fx = force * dx / Math.sqrt(distSq);
-                        const fy = force * dy / Math.sqrt(distSq);
-
-                        forces.get(nodeA.id).fx += fx;
-                        forces.get(nodeA.id).fy += fy;
-                        forces.get(nodeB.id).fx -= fx;
-                        forces.get(nodeB.id).fy -= fy;
-                    }
-                }
-
-                // Spring forces from edges
-                edges.forEach(edge => {
-                    const source = nodes.find(n => n.id === edge.source);
-                    const target = nodes.find(n => n.id === edge.target);
-                    if (!source || !target) return;
-                    const dx = target.x - source.x;
-                    const dy = target.y - source.y;
-                    const stiffness = 0.01;
-                    forces.get(source.id).fx += dx * stiffness;
-                    forces.get(source.id).fy += dy * stiffness;
-                    forces.get(target.id).fx -= dx * stiffness;
-                    forces.get(target.id).fy -= dy * stiffness;
-                });
-
-                // 2. Apply forces to update velocity and position
-                nodes.forEach(node => {
-                    if (node.isLocked || node === draggedNode) {
-                        node.vx = 0; node.vy = 0;
-                        return;
-                    }
-                    const force = forces.get(node.id);
-                    node.vx = (node.vx + force.fx) * 0.85; // Damping
-                    node.vy = (node.vy + force.fy) * 0.85;
-                    node.x += node.vx;
-                    node.y += node.vy;
-                });
-            }
-
-            function draw() {
-                ctx.save();
-                ctx.fillStyle = '#000';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                ctx.translate(canvas.width / 2, canvas.height / 2);
-                ctx.translate(viewOffset.x, viewOffset.y);
-                ctx.scale(scale, scale);
-
-                drawGrid(); // NEW: Draw the background grid
-
-                // Draw edges
-                ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
-                ctx.lineWidth = 1 / scale;
-                edges.forEach(edge => {
-                    const source = nodes.find(n => n.id === edge.source);
-                    const target = nodes.find(n => n.id === edge.target);
-                    if (source && target) {
-                        ctx.beginPath();
-                        ctx.moveTo(source.x, source.y);
-                        ctx.lineTo(target.x, target.y);
-                        ctx.stroke();
-                    }
-                });
-
-                // Draw nodes
-                nodes.forEach(node => {
-                    const now = Date.now();
-                    const isHighlighted = node.highlightUntil > now;
-
-                    // Locked indicator
-                    if (node.isLocked) {
-                        ctx.strokeStyle = '#00ffff';
-                        ctx.lineWidth = 3 / scale;
-                        ctx.strokeRect(node.x - NODE_RADIUS, node.y - NODE_RADIUS, NODE_RADIUS * 2, NODE_RADIUS * 2);
-                    }
-
-                    // Main circle
-                    ctx.beginPath();
-                    ctx.arc(node.x, node.y, NODE_RADIUS, 0, 2 * Math.PI);
-                    ctx.fillStyle = isHighlighted ? 'rgba(255, 255, 0, 0.8)' : (node === draggedNode ? 'rgba(0, 255, 0, 0.5)' : 'rgba(0, 255, 0, 0.2)');
-                    ctx.fill();
-                    ctx.strokeStyle = isHighlighted ? '#ff0' : (node.isLocked ? '#00ffff' : '#0f0');
-                    ctx.lineWidth = isHighlighted ? (3 / scale) : (1 / scale);
-                    ctx.stroke();
-
-                    // Label with dynamic size
-                    ctx.fillStyle = isHighlighted ? '#ff0' : '#0f0';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    const fontSize = NODE_RADIUS * 1.4;
-                    ctx.font = `bold ${fontSize}px "Courier New"`;
-                    ctx.fillText(node.label, node.x, node.y);
-                });
-
-                ctx.restore();
-            }
-
-            function drawGrid() {
-                ctx.strokeStyle = 'rgba(0, 255, 0, 0.08)';
-                ctx.lineWidth = 1 / scale;
-                const viewBounds = {
-                    left: -viewOffset.x / scale - (canvas.width / 2) / scale,
-                    right: -viewOffset.x / scale + (canvas.width / 2) / scale,
-                    top: -viewOffset.y / scale - (canvas.height / 2) / scale,
-                    bottom: -viewOffset.y / scale + (canvas.height / 2) / scale,
-                };
-                const startX = Math.floor(viewBounds.left / GRID_SIZE) * GRID_SIZE;
-                const endX = Math.ceil(viewBounds.right / GRID_SIZE) * GRID_SIZE;
-                const startY = Math.floor(viewBounds.top / GRID_SIZE) * GRID_SIZE;
-                const endY = Math.ceil(viewBounds.bottom / GRID_SIZE) * GRID_SIZE;
-
-                for (let x = startX; x <= endX; x += GRID_SIZE) {
-                    ctx.beginPath();
-                    ctx.moveTo(x, viewBounds.top);
-                    ctx.lineTo(x, viewBounds.bottom);
-                    ctx.stroke();
-                }
-                for (let y = startY; y <= endY; y += GRID_SIZE) {
-                    ctx.beginPath();
-                    ctx.moveTo(viewBounds.left, y);
-                    ctx.lineTo(viewBounds.right, y);
-                    ctx.stroke();
-                }
-            }
-
-            function gameLoop() {
-                update();
-                draw();
-                requestAnimationFrame(gameLoop);
-            }
-
-            // Initial setup
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            targetOffset = { ...viewOffset };
-            gameLoop();
-        })();
+        loadScript('https://apis.google.com/js/api.js')
+            .then(() => gapi.load('client', initializeAndRun))
+            .catch(error => console.error('Failed to load Google API script:', error));
     </script>
 </body>
-
 </html>

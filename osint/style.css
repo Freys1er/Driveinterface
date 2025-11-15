@@ -19,22 +19,19 @@ body {
     flex-direction: column;
 }
 
-/* Authentication Screen */
-#auth-view {
+/* --- Login Screen --- */
+#login-screen {
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100%;
+    height: 100vh;
     text-align: center;
 }
-
-/* Main Application View */
-#main-view {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
+#login-screen .widget {
+    max-width: 500px;
 }
 
+/* --- Main App Layout --- */
 header {
     display: flex;
     justify-content: space-between;
@@ -42,6 +39,11 @@ header {
     padding: 1rem;
     background-color: var(--surface-color);
     border-bottom: 1px solid var(--border-color);
+}
+
+header .logo {
+    font-weight: bold;
+    font-size: 1.2rem;
 }
 
 header nav {
@@ -61,10 +63,8 @@ header nav a {
     overflow-y: auto;
 }
 
-/* General Styles */
-.hidden {
-    display: none !important;
-}
+/* --- General Styles --- */
+.hidden { display: none !important; }
 
 .btn {
     background-color: var(--primary-color);
@@ -76,26 +76,33 @@ header nav a {
     font-size: 1rem;
     text-transform: uppercase;
     font-weight: bold;
+    text-decoration: none;
+    display: inline-block;
 }
+.btn:hover { opacity: 0.9; }
 
-.btn:hover {
-    opacity: 0.9;
-}
-
-/* Page Specific Styles */
+/* --- Page Specific Styles --- */
+/* Dashboard */
 .dashboard-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 1.5rem;
 }
-
 .widget {
     background-color: var(--surface-color);
     padding: 1.5rem;
     border-radius: 8px;
 }
 
-.contact-list a {
+/* Contact List */
+.contact-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+.contact-list-header h2 { margin: 0; }
+.contact-item {
     display: block;
     padding: 1rem;
     background-color: var(--surface-color);
@@ -103,4 +110,42 @@ header nav a {
     border-radius: 5px;
     text-decoration: none;
     color: var(--text-color);
+    transition: background-color 0.2s;
 }
+.contact-item:hover { background-color: #3c3c3c; }
+
+/* Contact Form & View */
+.contact-form .form-group { margin-bottom: 1.5rem; }
+.contact-form label { display: block; margin-bottom: 0.5rem; font-weight: bold; }
+.contact-form input,
+.contact-form textarea,
+.contact-form select {
+    width: 100%;
+    padding: 0.75rem;
+    box-sizing: border-box;
+    background-color: #3c3c3c;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    color: var(--text-color);
+    font-size: 1rem;
+}
+.contact-view-data {
+    background-color: var(--surface-color);
+    padding: 1rem;
+    border-radius: 5px;
+    white-space: pre-wrap;
+}
+.btn-bar { margin-top: 1.5rem; display: flex; gap: 1rem; }
+.relations-section { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color); }
+.relation-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background-color: var(--surface-color); border-radius: 5px; margin-bottom: 0.5rem; }
+.add-relation-form { display: flex; gap: 1rem; margin-top: 1rem; }
+.remove-relation-btn { background-color: #c0392b; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+
+/* Network Graph */
+#network-container { position: relative; width: 100%; height: 80vh; overflow: hidden; }
+#network-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: grab; background-color: #000; }
+#network-canvas.grabbing { cursor: grabbing; }
+#ui-controls { position: absolute; bottom: 10px; right: 10px; background-color: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px; border: 1px solid #0f0; color: #0f0; display: flex; gap: 10px; align-items: center; z-index: 1000; }
+#ui-controls button, #ui-controls input { background-color: #222; color: #0f0; border: 1px solid #0f0; padding: 5px 10px; font-family: "Courier New", Courier, monospace; cursor: pointer; }
+#ui-controls input { width: 80px; }
+#ui-controls button:hover { background-color: #0f0; color: #000; }

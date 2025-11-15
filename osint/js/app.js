@@ -1,47 +1,52 @@
-// osint/js/app.js
 
 const App = (() => {
+    // This key must match the one used in your main script.js
+    const TOKEN_STORAGE_KEY = 'drive-notes-app-token';
     let contacts = [];
 
-    const init = () => {
-        Auth.init();
-        Auth.onAuthChange(handleAuthStateChange);
-        window.addEventListener('hashchange', renderPage);
-        document.getElementById('signInButton').addEventListener('click', Auth.signIn);
-        document.getElementById('signOutButton').addEventListener('click', Auth.signOut);
-    };
+    /**
+     * Checks for a token in localStorage, validates it with Google, and redirects if invalid.
+     * This is the master authentication check for the entire OSINT section.
+     * @returns {Promise<boolean>} - Resolves true if authenticated, false otherwise.
+     */
+    const initializeAndAuth = () => {
+        return new Promise(async (resolve) => {
+            const tokenString = localStorage.getItem(TOKEN_STORAGE_KEY);
 
-    const handleAuthStateChange = async (isSignedIn) => {
-        if (isSignedIn) {
-            UI.showMainView();
-            await loadContacts();
-            renderPage();
-        } else {
-            contacts = [];
-            UI.showAuthView();
-        }
+            if (!tokenString) {
+                // If no token exists at all, redirect to the main app's login.
+                window.location.href = '/';
+                return resolve(false);
+            }
+
+            try {
+                const token = JSON.parse(tokenString);
+                gapi.client.setToken(token);
+
+                // Make a lightweight API call to verify the token is still valid.
+                await gapi.client.drive.about.get({ fields: 'user' });
+
+                // If the call succeeds, the token is valid.
+                resolve(true);
+            } catch (error) {
+                // If the call fails (e.g., 401 error), the token is expired or invalid.
+                console.error("Authentication validation failed:", error);
+                
+                // Remove the bad token and redirect to the main app to re-authenticate.
+                localStorage.removeItem(TOKEN_STORAGE_KEY);
+                window.location.href = '/';
+                resolve(false);
+            }
+        });
     };
 
     const loadContacts = async () => {
-        UI.setLoading(true);
         const { data, error } = await Drive.getContacts();
-        UI.setLoading(false);
         if (error) {
             console.error("Failed to load contacts:", error);
-            alert('Could not load contacts from Google Drive.');
             return;
         }
         contacts = data;
-    };
-
-    const renderPage = () => {
-        document.getElementById('page-content').innerHTML = '';
-        
-        // <<< FIX: Properly parse the hash to separate the page name from query parameters.
-        const hash = window.location.hash.substring(1) || 'dashboard';
-        const pageName = hash.split('?')[0]; // Get the part before the '?'
-
-        UI.loadPage(pageName);
     };
 
     const getContacts = () => {
@@ -49,13 +54,10 @@ const App = (() => {
     };
 
     const saveContacts = async (updatedContacts) => {
-        UI.setLoading(true);
         const { success, error } = await Drive.saveContacts(updatedContacts);
-        UI.setLoading(false);
-
         if (success) {
             contacts = updatedContacts;
-            window.location.hash = 'list';
+            window.location.href = './list.html';
         } else {
             console.error("Failed to save contacts:", error);
             alert('Failed to save contacts.');
@@ -63,10 +65,10 @@ const App = (() => {
     };
 
     return {
-        init,
+        initializeAndAuth,
+        loadContacts,
         getContacts,
-        saveContacts
+        saveContacts,
+        TOKEN_STORAGE_KEY // Expose for signout button
     };
 })();
-
-window.addEventListener('load', App.init);
