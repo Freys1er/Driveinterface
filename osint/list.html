@@ -1,19 +1,18 @@
+
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - ContactOSINT</title>
+    <title>All Contacts - ContactOSINT</title>
     <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
     <div id="app-container">
         <header>
             <nav>
-                <a href="dashboard.html">Dashboard</a>
+                <a href="index.html">Dashboard</a>
                 <a href="list.html">Contacts</a>
                 <a href="network.html">Network</a>
             </nav>
@@ -21,26 +20,22 @@
         </header>
 
         <main id="page-content">
-            <div class="dashboard-grid">
-                <div class="widget">
-                    <h2>Welcome to ContactOSINT</h2>
-                    <p>This tool is an extension of your Drive Notes app.</p>
-                </div>
-                <div class="widget">
-                    <h2>Quick Stats</h2>
-                    <p>Total Contacts: <span id="contact-count">Loading...</span></p>
-                </div>
+            <div class="contact-list-header">
+                <h2>All Contacts</h2>
+                <a href="contact.html?new=true" class="btn">Add New Contact</a>
+            </div>
+            <div id="contacts-container">
+                <p>Loading...</p>
             </div>
         </main>
     </div>
-
+    
     <!-- The main google api script --><script src="https://apis.google.com/js/api.js?onload=gapiLoaded" async defer></script>
     <!-- Shared application logic modules -->
     <script src="drive.js"></script>
     <script src="app.js"></script>
     <!-- Page-specific script -->
-    <script src="dashboard.js"></script>
+    <script src="list.js"></script>
 
 </body>
-
 </html>

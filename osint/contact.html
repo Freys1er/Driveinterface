@@ -1,19 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - ContactOSINT</title>
+    <title>Contact Details - ContactOSINT</title>
     <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
     <div id="app-container">
         <header>
             <nav>
-                <a href="dashboard.html">Dashboard</a>
+                <a href="index.html">Dashboard</a>
                 <a href="list.html">Contacts</a>
                 <a href="network.html">Network</a>
             </nav>
@@ -21,15 +19,9 @@
         </header>
 
         <main id="page-content">
-            <div class="dashboard-grid">
-                <div class="widget">
-                    <h2>Welcome to ContactOSINT</h2>
-                    <p>This tool is an extension of your Drive Notes app.</p>
-                </div>
-                <div class="widget">
-                    <h2>Quick Stats</h2>
-                    <p>Total Contacts: <span id="contact-count">Loading...</span></p>
-                </div>
+            <!-- The contact form or view will be rendered inside this container -->
+            <div id="contact-container">
+                <p>Loading contact details...</p>
             </div>
         </main>
     </div>
@@ -39,8 +31,7 @@
     <script src="drive.js"></script>
     <script src="app.js"></script>
     <!-- Page-specific script -->
-    <script src="dashboard.js"></script>
+    <script src="contact.js"></script>
 
 </body>
-
 </html>

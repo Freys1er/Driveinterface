@@ -1,10 +1,44 @@
-// --- osint/js/network.js ---
+// --- Bootstrap and Authentication Logic ---
 
-// CHANGED: The function now accepts the list of real contacts as an argument.
+document.getElementById('signout-button').addEventListener('click', () => {
+    localStorage.removeItem(App.TOKEN_STORAGE_KEY);
+    window.location.href = '/';
+});
+
+/**
+ * Page-specific logic: Get contacts and initialize the graph.
+ */
+function runPageLogic() {
+    const contacts = App.getContacts();
+    const container = document.getElementById('network-container');
+    initializeNetworkGraph(container, contacts);
+}
+
+async function initializeAndRun() {
+    try {
+        await gapi.client.init({
+            discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+        });
+        const isAuthenticated = await App.initializeAndAuth();
+        if (isAuthenticated) {
+            await App.loadContacts();
+            runPageLogic();
+        }
+    } catch (error) {
+        console.error("Initialization Error:", error);
+        document.getElementById('page-content').innerHTML = `<h1>Error</h1><p>Could not initialize the application.</p>`;
+    }
+}
+
+function gapiLoaded() {
+    gapi.load('client', initializeAndRun);
+}
+
+
+// --- Network Graph Rendering Logic ---
+
 function initializeNetworkGraph(containerElement, realContacts) {
-    
-    // REMOVED: The entire 'mockContacts' array has been deleted.
-
+    console.log("NETWORK_DEBUG: Initializing graph with", realContacts.length, "contacts.");
     const canvas = document.getElementById('network-canvas');
     if (!canvas) {
         console.error("Could not find the canvas element for the network graph.");
@@ -12,7 +46,6 @@ function initializeNetworkGraph(containerElement, realContacts) {
     }
     const ctx = canvas.getContext('2d');
 
-    // ADDED: Check if there are any contacts to display.
     if (!realContacts || realContacts.length === 0) {
         ctx.fillStyle = '#444';
         ctx.textAlign = 'center';
@@ -22,21 +55,17 @@ function initializeNetworkGraph(containerElement, realContacts) {
     }
 
     const uiControls = document.getElementById('ui-controls');
-    if(uiControls) uiControls.style.display = 'flex'; // Show controls only if there's data
+    if(uiControls) uiControls.style.display = 'flex';
 
-    // --- UI Elements ---
     const pauseButton = document.getElementById('pause-button');
     const findInput = document.getElementById('find-input');
     const findButton = document.getElementById('find-button');
     const addButton = document.getElementById('add-button');
 
-    // --- DATA PREPARATION ---
     const nodes = [];
     const edges = [];
 
-    // CHANGED: We now loop over 'realContacts' instead of 'mockContacts'.
     realContacts.forEach(contact => {
-        // Skip contacts that don't have an ID
         if (!contact.id) return;
 
         nodes.push({
@@ -48,31 +77,31 @@ function initializeNetworkGraph(containerElement, realContacts) {
             highlightUntil: 0
         });
 
-        let relations = [];
-        if (contact.relations) {
-            try { 
-                // Handle both string and object-based relations for safety
-                relations = typeof contact.relations === 'string' 
-                    ? JSON.parse(contact.relations) 
-                    : contact.relations;
-            } catch (e) { 
-                console.error(`Relation parse error for contact ${contact.id}:`, e); 
-            }
+        // *** FIX: Replaced the complex try/catch block with a simple, robust check. ***
+        const relations = Array.isArray(contact.relations) ? contact.relations : [];
+
+        if (relations.length > 0) {
+            console.log(`NETWORK_DEBUG: Contact ${contact.id} has relations:`, relations);
         }
 
-        if (Array.isArray(relations)) {
-            relations.forEach(rel => {
-                // Ensure the target contact exists before creating an edge
-                if (rel && rel.contactId && realContacts.some(c => c.id === rel.contactId)) {
-                    // Avoid duplicate edges
-                    const edgeExists = edges.some(e => (e.source === contact.id && e.target === rel.contactId) || (e.source === rel.contactId && e.target === contact.id));
-                    if (!edgeExists) {
-                        edges.push({ source: contact.id, target: rel.contactId });
-                    }
+        relations.forEach(rel => {
+            // Check if the target contact for the relationship actually exists in our list.
+            const targetExists = realContacts.some(c => c.id === rel.contactId);
+            
+            if (rel && rel.contactId && targetExists) {
+                // Avoid duplicate edges (A->B is the same as B->A for the graph)
+                const edgeExists = edges.some(e => (e.source === contact.id && e.target === rel.contactId) || (e.source === rel.contactId && e.target === contact.id));
+                if (!edgeExists) {
+                    edges.push({ source: contact.id, target: rel.contactId });
                 }
-            });
-        }
+            } else {
+                console.warn(`NETWORK_DEBUG: Could not create edge for relation because target contact '${rel.contactId}' was not found.`);
+            }
+        });
     });
+
+    console.log("NETWORK_DEBUG: Node creation complete. Total nodes:", nodes.length);
+    console.log("NETWORK_DEBUG: Edge creation complete. Total edges:", edges.length, edges);
 
     // --- STATE & CONSTANTS (No changes in this section) ---
     let isPaused = false;
@@ -88,9 +117,7 @@ function initializeNetworkGraph(containerElement, realContacts) {
     const NODE_RADIUS = 20;
     const GRID_SIZE = 50;
 
-    // --- ALL THE REMAINING FUNCTIONS (handleInteraction, handleWheel, findNode, update, draw, etc.) ---
-    // --- ARE UNCHANGED. The physics and drawing logic remains the same. ---
-
+    // --- ALL THE REMAINING FUNCTIONS (handleInteraction, update, draw, etc.) ARE UNCHANGED ---
     function screenToWorld(x, y) {
         const rect = canvas.getBoundingClientRect();
         const centerX = rect.width / 2;
@@ -148,7 +175,7 @@ function initializeNetworkGraph(containerElement, realContacts) {
             if (clickTimeout) {
                 clearTimeout(clickTimeout);
                 clickTimeout = null;
-                window.location.href = `./contact.html?id=${draggedNode.id}`;
+                window.location.href = `contact.html?id=${draggedNode.id}`;
             } else {
                 clickTimeout = setTimeout(() => {
                     draggedNode.isLocked = !draggedNode.isLocked;
@@ -181,7 +208,7 @@ function initializeNetworkGraph(containerElement, realContacts) {
     pauseButton.addEventListener('click', () => { isPaused = !isPaused; pauseButton.textContent = isPaused ? 'Play' : 'Pause'; });
     findButton.addEventListener('click', findNode);
     findInput.addEventListener('keydown', (e) => e.key === 'Enter' && findNode());
-    addButton.addEventListener('click', () => window.location.href = './contact.html?new=true');
+    addButton.addEventListener('click', () => window.location.href = 'contact.html?new=true');
 
     function findNode() {
         const query = findInput.value.trim().toUpperCase(); if (!query) return;

@@ -142,10 +142,149 @@ header nav a {
 .remove-relation-btn { background-color: #c0392b; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
 
 /* Network Graph */
-#network-container { position: relative; width: 100%; height: 80vh; overflow: hidden; }
-#network-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: grab; background-color: #000; }
+#page-content.network-page {
+    padding: 0; /* Remove padding for full-screen canvas */
+    height: calc(100vh - 61px); /* Full height minus header */
+    position: relative;
+}
+#network-container { position: relative; width: 100%; height: 100%; overflow: hidden; }
+#network-canvas { display: block; width: 100%; height: 100%; cursor: grab; background-color: #000; }
 #network-canvas.grabbing { cursor: grabbing; }
-#ui-controls { position: absolute; bottom: 10px; right: 10px; background-color: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px; border: 1px solid #0f0; color: #0f0; display: flex; gap: 10px; align-items: center; z-index: 1000; }
+#ui-controls { 
+    position: absolute; 
+    bottom: 10px; 
+    right: 10px; 
+    background-color: rgba(0,0,0,0.7); 
+    padding: 10px; 
+    border-radius: 5px; 
+    border: 1px solid #0f0; 
+    color: #0f0; 
+    display: none; /* Hidden by default, shown by script */
+    gap: 10px; 
+    align-items: center; 
+    z-index: 1000; 
+}
 #ui-controls button, #ui-controls input { background-color: #222; color: #0f0; border: 1px solid #0f0; padding: 5px 10px; font-family: "Courier New", Courier, monospace; cursor: pointer; }
 #ui-controls input { width: 80px; }
 #ui-controls button:hover { background-color: #0f0; color: #000; }
+
+
+/* --- ADD THESE STYLES TO THE BOTTOM OF YOUR style.css FILE --- */
+
+/* Key-Value Notes Form */
+.notes-kv-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+.notes-kv-pair {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+.notes-kv-pair input {
+    flex-grow: 1; /* Allows inputs to take available space */
+}
+.notes-kv-pair .key-input {
+    flex-basis: 30%; /* Key takes up less space */
+}
+.notes-kv-pair .value-input {
+    flex-basis: 70%; /* Value takes up more space */
+}
+.btn-delete-kv, #btn-add-kv {
+    background-color: #c0392b;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+    min-width: 40px; /* Ensures delete button has a consistent size */
+}
+#btn-add-kv {
+    background-color: var(--primary-color);
+    margin-top: 0.5rem;
+    align-self: flex-start; /* Aligns button to the left */
+}
+
+/* Relationship Form Additions */
+.relationship-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    align-items: center;
+}
+.form-group-slider {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.form-group-slider label {
+    margin: 0;
+}
+#relation-weight-value {
+    font-family: "Courier New", Courier, monospace;
+    font-weight: bold;
+    color: var(--primary-color);
+}
+#add-relation-btn {
+    grid-column: 1 / -1; /* Makes the button span the full width */
+    justify-self: start;
+}
+
+/* Contact ID Reference List */
+.contact-id-reference {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background-color: #222;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+.contact-id-reference h5 {
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    color: #aaa;
+}
+.contact-id-reference ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 0.9rem;
+}
+.contact-id-reference li {
+    margin-bottom: 0.25rem;
+}
+.contact-id-reference code {
+    background-color: #333;
+    padding: 2px 4px;
+    border-radius: 3px;
+    color: #e0e0e0;
+}
+
+/* View-mode styles for new data */
+.notes-view-list, .relations-view-list {
+    list-style: none;
+    padding: 0;
+}
+.notes-view-item, .relation-view-item {
+    background-color: var(--surface-color);
+    padding: 0.75rem;
+    border-radius: 5px;
+    margin-bottom: 0.5rem;
+}
+.notes-view-item strong {
+    color: var(--primary-color);
+}
+.relation-strength-bar {
+    width: 100px;
+    height: 10px;
+    background-color: #444;
+    border-radius: 5px;
+    overflow: hidden;
+    display: inline-block;
+    margin: 0 10px;
+}
+.relation-strength-fill {
+    height: 100%;
+    background-color: var(--primary-color);
+    border-radius: 5px;
+}
